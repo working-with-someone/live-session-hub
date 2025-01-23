@@ -1,0 +1,76 @@
+{
+  "currUser": {
+    "id": 1,
+    "username": "currUser",
+    "encrypted_password": "$2b$10$6ZbxBKRk1qdhySGQeN5Iw.CTA4XFCVGL9KHkZnabitdjSRegvBif2",
+    "email": "email@test.com",
+    "pfp": {
+      "curr": "/media/images/default/pfp",
+      "is_default": true,
+      "user_id": 1
+    },
+    "email_verification": {
+      "create": {
+        "email_verified": true,
+        "verify_token": "testVerifyToken",
+        "expired_at": "2023-09-22T12:34:56.789Z"
+      }
+    }
+  },
+  "users": [
+    {
+      "id": 2,
+      "username": "testUser1",
+      "encrypted_password": "$2b$10$6ZbxBKRk1qdhySGQeN5Iw.CTA4XFCVGL9KHkZnabitdjSRegvBif2",
+      "email": "testEmail1@test.com",
+      "pfp": {
+        "curr": "/media/images/default/pfp",
+        "is_default": true,
+        "user_id": 2
+      },
+      "email_verification": {
+        "create": {
+          "email_verified": true,
+          "verify_token": "testVerifyToken",
+          "expired_at": "2023-09-22T12:34:56.789Z"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "username": "testUser2",
+      "encrypted_password": "$2b$10$6ZbxBKRk1qdhySGQeN5Iw.CTA4XFCVGL9KHkZnabitdjSRegvBif2",
+      "pfp": {
+        "curr": "/media/images/default/pfp",
+        "is_default": true,
+        "user_id": 3
+      },
+      "email": "testEmail2@test.com",
+      "email_verification": {
+        "create": {
+          "email_verified": true,
+          "verify_token": "testVerifyToken",
+          "expired_at": "2023-09-22T12:34:56.789Z"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "username": "testUser3",
+      "encrypted_password": "$2b$10$6ZbxBKRk1qdhySGQeN5Iw.CTA4XFCVGL9KHkZnabitdjSRegvBif2",
+      "pfp": {
+        "curr": "/media/images/default/pfp",
+        "is_default": true,
+        "user_id": 4
+      },
+      "email": "testEmail3@test.com",
+      "email_verification": {
+        "create": {
+          "email_verified": true,
+          "verify_token": "testVerifyToken",
+          "expired_at": "2023-09-22T12:34:56.789Z"
+        }
+      }
+    }
+  ]
+}
