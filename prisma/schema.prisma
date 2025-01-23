@@ -1,0 +1,110 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model user {
+  id                 Int                 @id @default(autoincrement())
+  username           String
+  encrypted_password String
+  email              String
+  created_at         DateTime            @default(now())
+  updated_at         DateTime            @updatedAt
+  email_verification email_verification?
+  oauth_client       oauth_client[]
+  pfp                pfp?
+  followers_count    Int                 @default(0)
+  followings_count   Int                 @default(0)
+  followers          follow[]            @relation("following")
+  following          follow[]            @relation("follower")
+  session            session[]
+  allow_list         session_allow[]
+}
+
+model pfp {
+  user_id    Int     @unique
+  user       user    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  curr       String  @default("/media/images/default/pfp")
+  is_default Boolean @default(true)
+}
+
+model email_verification {
+  email_verified Boolean
+  verify_token   String
+  created_at     DateTime @default(now())
+  expired_at     DateTime
+  user_id        Int      @unique
+  user           user     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model oauth_client {
+  client_id                  String  @id
+  client_name                String  @db.VarChar(20)
+  client_secret              String
+  client_uri                 String  @db.VarChar(2048)
+  contacts                   Json?   @default("[]")
+  logo_uri                   String  @db.VarChar(2048)
+  tos_uri                    String? @db.VarChar(2048)
+  policy_uri                 String? @db.VarChar(2048)
+  jwks_uri                   String? @db.VarChar(2048)
+  redirect_uri               Json    @default("[]")
+  token_endpoint_auth_method String  @default("client_secret_post")
+  response_type              String  @default("code")
+  grant_types                Json    @default("[\"authorization_code\"]")
+  //space-seperated string
+  scope                      String
+  user_id                    Int
+  user                       user    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model follow {
+  follower          user @relation("follower", fields: [follower_user_id], references: [id], onDelete: Cascade)
+  follower_user_id  Int
+  following         user @relation("following", fields: [following_user_id], references: [id], onDelete: Cascade)
+  following_user_id Int
+
+  @@id([follower_user_id, following_user_id])
+}
+
+model session {
+  id            String  @id
+  title         String  @db.VarChar(100)
+  description   String? @db.Text
+  thumbnail_url String
+  is_live       Boolean
+  // 1 : public 2 : followersOnly 3 : private
+  access_level  Int     @default(1)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now())
+
+  organizer_id Int
+  organizer    user            @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
+  category     String
+  session_live session_live?
+  allow_list   session_allow[]
+}
+
+model session_live {
+  started_at DateTime?
+  // 1 : ready, 2 : opened 3 : paused 4 : closed
+  status     Int
+  session    session   @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  session_id String    @unique
+}
+
+model session_allow {
+  user       user    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id    Int
+  session    session @relation(fields: [session_id], references: [id], onDelete: Cascade)
+  session_id String
+
+  @@id([session_id, user_id])
+}
