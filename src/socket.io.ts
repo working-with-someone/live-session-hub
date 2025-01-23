@@ -5,7 +5,7 @@ import socketAuthMiddleware from './middleware/socket/auth';
 import session from 'express-session';
 import sessionConfig from './config/session.config';
 import { liveSessionPermission } from './middleware/socket/permission';
-
+import registerStreamHandler from './handler/streamHandler';
 export const httpServer = createServer(app);
 
 export const socketIoServer = new Server(httpServer, {
@@ -20,14 +20,12 @@ const liveSessionNsp = socketIoServer.of(
 );
 
 socketIoServer.engine.use(session(sessionConfig));
+
 // connection과정에서 한번만 실행된다.
 liveSessionNsp.use(socketAuthMiddleware);
-
 liveSessionNsp.use(liveSessionPermission);
 
 liveSessionNsp.on('connection', (socket) => {
-  console.log({
-    userId: socket.userId,
-    liveSessionId: socket.liveSessionId,
-  });
+  console.log(socket.liveSession);
+  registerStreamHandler(liveSessionNsp, socket);
 });
