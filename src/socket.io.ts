@@ -6,6 +6,8 @@ import session from 'express-session';
 import sessionConfig from './config/session.config';
 import { liveSessionPermission } from './middleware/socket/permission';
 import registerStreamHandler from './handler/streamHandler';
+import assignFfmpegProcessToOrganizer from './middleware/socket/assignFfmpegProcess';
+
 export const httpServer = createServer(app);
 
 export const socketIoServer = new Server(httpServer, {
@@ -24,8 +26,8 @@ socketIoServer.engine.use(session(sessionConfig));
 // connection과정에서 한번만 실행된다.
 liveSessionNsp.use(socketAuthMiddleware);
 liveSessionNsp.use(liveSessionPermission);
+liveSessionNsp.use(assignFfmpegProcessToOrganizer);
 
 liveSessionNsp.on('connection', (socket) => {
-  console.log(socket.liveSession);
   registerStreamHandler(liveSessionNsp, socket);
 });
