@@ -11,6 +11,10 @@ const assignFfmpegProcessToOrganizer = async (
     const process = ffmpegProcessPool.getOrCreateProcess(socket.liveSession.id);
 
     socket.ffmpegProcess = process;
+
+    socket.on('disconnect', () => {
+      ffmpegProcessPool.terminateProcess(socket.liveSession.id);
+    });
   }
 
   next();
