@@ -1,6 +1,5 @@
 import { wwsError } from '../../error/wwsError';
 import { Request, Response, NextFunction } from 'express';
-import { errorLogger } from '../logger/winston';
 import httpStatusCode from 'http-status-codes';
 
 const errorHandler = (
@@ -14,8 +13,6 @@ const errorHandler = (
   // unhandled exception
   if (isUnHandledException) {
     const originError = err.originError;
-
-    errorLogger.log('error', originError.message, { stack: originError.stack });
   }
 
   return res.status(err.status).json({
