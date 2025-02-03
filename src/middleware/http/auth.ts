@@ -23,7 +23,6 @@ const httpAuthMiddleware = async (
     }
   }
 
-  console.log('http unauthorized');
   return next(
     new wwsError(
       httpStatusCode.UNAUTHORIZED,
