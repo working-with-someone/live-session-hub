@@ -1,8 +1,4 @@
 import { ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
-import { Socket } from 'socket.io';
-import path from 'node:path';
-import httpStatusCode from 'http-status-codes';
-import { wwsError } from '../../error/wwsError';
 
 class FFmpegProcessPool {
   pool: Map<string, ChildProcessWithoutNullStreams>;
@@ -12,11 +8,10 @@ class FFmpegProcessPool {
   }
 
   private createProcess(liveSessionId: string) {
-    const rtmpEndpoint = path.join(
-      process.env.RTMP_SERVER_ORIGIN as string,
-      'live',
-      liveSessionId
-    );
+    const rtmpEndpoint = new URL(
+      `live/${liveSessionId}`,
+      process.env.RTMP_SERVER_ORIGIN
+    ).toString();
 
     return spawn('ffmpeg', [
       '-y',
