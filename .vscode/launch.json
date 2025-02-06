@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "launch live-session-hub",
+      "program": "${workspaceFolder}/src/index.ts",
+      "preLaunchTask": "tsc: build - tsconfig.json",
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.(m|c|)js",
+      ],
+      "env": {
+        //insert environment variables
+      }
+    }
+  ],
+  "compounds": []
+}

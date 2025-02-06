@@ -10,11 +10,11 @@
     "typeRoots": [
       "./src/@types/augmentation",
       "./node_modules/@types",
-    ]
+    ],
+    "sourceMap": true,
   },
   "include": [
     "src",
-    "tests"
   ],
   "exclude": [
     "node_modules",
