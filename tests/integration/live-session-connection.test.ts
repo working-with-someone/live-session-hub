@@ -49,6 +49,7 @@ describe('Connection', () => {
       );
 
       clientSocket.on('connect', () => {
+        expect(clientSocket.connected).toBeTruthy();
         done();
       });
     });
@@ -58,6 +59,7 @@ describe('Connection', () => {
 
       clientSocket.on('connect_error', (err) => {
         expect(err).toBeDefined();
+        expect(clientSocket.connected).toBeFalsy();
         done();
       });
     });
@@ -70,6 +72,7 @@ describe('Connection', () => {
 
       clientSocket.on('connect_error', (err) => {
         expect(err).toBeDefined();
+        expect(clientSocket.connected).toBeFalsy();
         done();
       });
     });
