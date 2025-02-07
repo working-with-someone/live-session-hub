@@ -19,6 +19,24 @@
   },
   "users": [
     {
+      "id": 1,
+      "username": "currUser",
+      "encrypted_password": "$2b$10$6ZbxBKRk1qdhySGQeN5Iw.CTA4XFCVGL9KHkZnabitdjSRegvBif2",
+      "email": "email@test.com",
+      "pfp": {
+        "curr": "/media/images/default/pfp",
+        "is_default": true,
+        "user_id": 1
+      },
+      "email_verification": {
+        "create": {
+          "email_verified": true,
+          "verify_token": "testVerifyToken",
+          "expired_at": "2023-09-22T12:34:56.789Z"
+        }
+      }
+    },
+    {
       "id": 2,
       "username": "testUser1",
       "encrypted_password": "$2b$10$6ZbxBKRk1qdhySGQeN5Iw.CTA4XFCVGL9KHkZnabitdjSRegvBif2",
