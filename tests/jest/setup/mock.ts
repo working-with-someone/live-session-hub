@@ -1,5 +1,6 @@
-import { NextFunction, Request, Response } from 'express';
 import testUserData from '../../data/user.json';
+import { Request, Response } from 'express';
+import { NextFunction } from 'express';
 import { Socket } from 'socket.io';
 
 const currUser = testUserData.currUser;
