@@ -1,15 +1,14 @@
-import server from '../../src';
 import prismaClient from '../../src/database/clients/prisma';
 import testUserData from '../data/user.json';
 import testSessionData from '../data/session.json';
 import ioc from 'socket.io-client';
 import type { Socket as ClientSocket } from 'socket.io-client';
+import { httpServer } from '../../src/http';
 
 describe('Connection', () => {
   let clientSocket: ClientSocket;
-
-  beforeAll((done) => {
-    server.on('listening', done);
+  afterAll(() => {
+    httpServer.close();
   });
 
   beforeAll(async () => {
