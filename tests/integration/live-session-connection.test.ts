@@ -4,11 +4,16 @@ import testSessionData from '../data/session.json';
 import ioc from 'socket.io-client';
 import type { Socket as ClientSocket } from 'socket.io-client';
 import { httpServer } from '../../src/http';
+import { liveSessionStatus } from '../../src/enums/session';
 
 describe('Connection', () => {
-  let clientSocket: ClientSocket;
   afterAll(() => {
     httpServer.close();
+  });
+
+  afterAll(async () => {
+    await prismaClient.user.deleteMany({});
+    await prismaClient.session.deleteMany({});
   });
 
   beforeAll(async () => {
@@ -20,28 +25,32 @@ describe('Connection', () => {
         },
       });
     }
-
-    for (let liveSession of testSessionData.liveSessions) {
-      await prismaClient.session.create({
-        data: {
-          ...liveSession,
-          session_live: {
-            create: {
-              ...liveSession.session_live,
-            },
-          },
-        },
-      });
-    }
-  });
-
-  afterAll(async () => {
-    await prismaClient.user.deleteMany({});
-    await prismaClient.session.deleteMany({});
-    clientSocket.disconnect();
   });
 
   describe('connect to liveSession namespace', () => {
+    let clientSocket: ClientSocket;
+
+    beforeAll(async () => {
+      for (let liveSession of testSessionData.liveSessions) {
+        await prismaClient.session.create({
+          data: {
+            ...liveSession,
+            session_live: {
+              create: {
+                ...liveSession.session_live,
+              },
+            },
+          },
+        });
+      }
+    });
+
+    afterAll(() => {
+      if (clientSocket.connected) {
+        clientSocket.disconnect();
+      }
+    });
+
     test('Connection_Establish', (done) => {
       clientSocket = ioc(
         process.env.SERVER_URL +
@@ -74,6 +83,68 @@ describe('Connection', () => {
         expect(err).toBeDefined();
         expect(clientSocket.connected).toBeFalsy();
         done();
+      });
+    });
+  });
+
+  describe('disconnect from liveSession namespace', () => {
+    let clientSocket: ClientSocket;
+
+    // connect
+    beforeEach((done) => {
+      clientSocket = ioc(
+        process.env.SERVER_URL +
+          `/livesession/${testSessionData.liveSessions[0].id}`
+      );
+
+      clientSocket.on('connect', () => {
+        done();
+      });
+
+      clientSocket.on('connect_error', done);
+    });
+
+    // disconnect if still connected
+    afterEach((done) => {
+      if (clientSocket.connected) {
+        clientSocket.disconnect();
+      }
+
+      done();
+    });
+
+    // organizer의 socket이 disconnect시, live session의 status가 paused로 update되는데 이를 복구한다.
+    afterEach(async () => {
+      for (const liveSession of testSessionData.liveSessions) {
+        await prismaClient.session.update({
+          data: {
+            ...liveSession,
+            session_live: {
+              update: {
+                data: liveSession.session_live,
+              },
+            },
+          },
+          where: {
+            id: liveSession.id,
+          },
+        });
+      }
+    });
+
+    // disconnect 후에는 live session의 status가 pause되어야한다.
+    test('Disconnect_Should_Pause_Live_Session', async () => {
+      clientSocket.disconnect();
+      clientSocket.on('disconnect', async () => {
+        expect(clientSocket.disconnected);
+
+        const sessionLive = await prismaClient.session_live.findFirst({
+          where: { session_id: testSessionData.liveSessions[0].id },
+        });
+
+        expect(sessionLive).toBeDefined();
+
+        expect(sessionLive!.status == liveSessionStatus.paused);
       });
     });
   });
