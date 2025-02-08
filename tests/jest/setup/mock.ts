@@ -15,7 +15,12 @@ jest.mock('../../../src/middleware/http/auth.ts', () => {
 
 jest.mock('../../../src/middleware/socket/auth.ts', () => {
   return (socket: Socket, next: NextFunction) => {
-    socket.userId = currUser.id;
+    // socket.request.headers의 key는 lowercase다
+    if (!socket.request.headers.userid) {
+      throw new Error('userid must specify');
+    }
+
+    socket.userId = parseInt(socket.request.headers.userid as string);
     next();
   };
 });
