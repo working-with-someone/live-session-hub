@@ -2,7 +2,7 @@ import prismaClient from '../../src/database/clients/prisma';
 import testUserData from '../data/user.json';
 import testSessionData from '../data/session.json';
 import ioc from 'socket.io-client';
-import type { Socket as ClientSocket } from 'socket.io-client';
+import { Socket as ClientSocket } from 'socket.io-client';
 import { httpServer } from '../../src/http';
 import { liveSessionStatus } from '../../src/enums/session';
 
@@ -25,126 +25,244 @@ describe('Connection', () => {
         },
       });
     }
-  });
 
-  describe('connect to liveSession namespace', () => {
-    let clientSocket: ClientSocket;
-
-    beforeAll(async () => {
-      for (let liveSession of testSessionData.liveSessions) {
-        await prismaClient.session.create({
-          data: {
-            ...liveSession,
-            session_live: {
-              create: {
-                ...liveSession.session_live,
-              },
+    for (let liveSession of testSessionData.liveSessions) {
+      await prismaClient.session.create({
+        data: {
+          ...liveSession,
+          session_live: {
+            create: {
+              ...liveSession.session_live,
             },
           },
+        },
+      });
+    }
+  });
+
+  describe('Participant', () => {
+    const participant = testUserData.users[1];
+
+    describe('connect to lives session', () => {
+      let participantSocket: ClientSocket;
+
+      afterAll(() => {
+        if (participantSocket.connected) {
+          participantSocket.disconnect();
+        }
+      });
+
+      test('Connection_Establish', (done) => {
+        participantSocket = ioc(
+          process.env.SERVER_URL +
+            `/livesession/${testSessionData.liveSessions[0].id}`,
+          {
+            extraHeaders: { userId: participant.id.toString() },
+          }
+        );
+
+        participantSocket.on('connect', () => {
+          expect(participantSocket.connected).toBeTruthy();
+          done();
         });
-      }
-    });
+      });
 
-    afterAll(() => {
-      if (clientSocket.connected) {
-        clientSocket.disconnect();
-      }
-    });
+      test('Connection_Reject_LiveSession(?)', (done) => {
+        participantSocket = ioc(
+          process.env.SERVER_URL + `/livesession/not-uuid`,
+          {
+            extraHeaders: { userId: participant.id.toString() },
+          }
+        );
 
-    test('Connection_Establish', (done) => {
-      clientSocket = ioc(
-        process.env.SERVER_URL +
-          `/livesession/${testSessionData.liveSessions[0].id}`
-      );
+        participantSocket.on('connect_error', (err) => {
+          expect(err).toBeDefined();
+          expect(participantSocket.connected).toBeFalsy();
+          done();
+        });
+      });
 
-      clientSocket.on('connect', () => {
-        expect(clientSocket.connected).toBeTruthy();
-        done();
+      test('Connection_Reject_LiveSession(does_not_exist)', (done) => {
+        participantSocket = ioc(
+          process.env.SERVER_URL +
+            '/livesession/11111111-1111-1111-1111-111111111111',
+          {
+            extraHeaders: { userId: participant.id.toString() },
+          }
+        );
+
+        participantSocket.on('connect_error', (err) => {
+          expect(err).toBeDefined();
+          expect(participantSocket.connected).toBeFalsy();
+          done();
+        });
       });
     });
 
-    test('Connection_Reject_LiveSession(?)', (done) => {
-      clientSocket = ioc(process.env.SERVER_URL + `/livesession/not-uuid`);
+    describe('disconnect from liveSession namespace', () => {
+      let participantSocket: ClientSocket;
 
-      clientSocket.on('connect_error', (err) => {
-        expect(err).toBeDefined();
-        expect(clientSocket.connected).toBeFalsy();
+      beforeEach((done) => {
+        participantSocket = ioc(
+          process.env.SERVER_URL +
+            `/livesession/${testSessionData.liveSessions[0].id}`,
+          {
+            extraHeaders: { userId: participant.id.toString() },
+          }
+        );
+
+        participantSocket.on('connect', () => {
+          done();
+        });
+      });
+
+      afterEach((done) => {
+        if (participantSocket.connected) {
+          participantSocket.disconnect();
+        }
+
         done();
       });
-    });
 
-    test('Connection_Reject_LiveSession(does_not_exist)', (done) => {
-      clientSocket = ioc(
-        process.env.SERVER_URL +
-          '/livesession/11111111-1111-1111-1111-111111111111'
-      );
+      // disconnect 후에는 live session의 status가 pause되어야한다.
+      test('Disconnect_Should_Pause_Live_Session', async () => {
+        participantSocket.disconnect();
+        participantSocket.on('disconnect', async () => {
+          expect(participantSocket.disconnected);
 
-      clientSocket.on('connect_error', (err) => {
-        expect(err).toBeDefined();
-        expect(clientSocket.connected).toBeFalsy();
-        done();
+          const sessionLive = await prismaClient.session_live.findFirst({
+            where: { session_id: testSessionData.liveSessions[0].id },
+          });
+
+          expect(sessionLive).toBeDefined();
+
+          expect(sessionLive!.status == liveSessionStatus.opened);
+        });
       });
     });
   });
 
-  describe('disconnect from liveSession namespace', () => {
-    let clientSocket: ClientSocket;
+  describe('Organizer', () => {
+    const organizer = testUserData.currUser;
 
-    // connect
-    beforeEach((done) => {
-      clientSocket = ioc(
-        process.env.SERVER_URL +
-          `/livesession/${testSessionData.liveSessions[0].id}`
-      );
+    describe('connect to liveSession namespace', () => {
+      let organizerSocket: ClientSocket;
 
-      clientSocket.on('connect', () => {
+      afterAll(() => {
+        if (organizerSocket.connected) {
+          organizerSocket.disconnect();
+        }
+      });
+
+      test('Connection_Establish', (done) => {
+        organizerSocket = ioc(
+          process.env.SERVER_URL +
+            `/livesession/${testSessionData.liveSessions[0].id}`,
+          {
+            extraHeaders: { userId: organizer.id.toString() },
+          }
+        );
+
+        organizerSocket.on('connect', () => {
+          expect(organizerSocket.connected).toBeTruthy();
+          done();
+        });
+      });
+
+      test('Connection_Reject_LiveSession(?)', (done) => {
+        organizerSocket = ioc(
+          process.env.SERVER_URL + `/livesession/not-uuid`,
+          {
+            extraHeaders: { userId: organizer.id.toString() },
+          }
+        );
+
+        organizerSocket.on('connect_error', (err) => {
+          expect(err).toBeDefined();
+          expect(organizerSocket.connected).toBeFalsy();
+          done();
+        });
+      });
+
+      test('Connection_Reject_LiveSession(does_not_exist)', (done) => {
+        organizerSocket = ioc(
+          process.env.SERVER_URL +
+            '/livesession/11111111-1111-1111-1111-111111111111',
+          {
+            extraHeaders: { userId: organizer.id.toString() },
+          }
+        );
+
+        organizerSocket.on('connect_error', (err) => {
+          expect(err).toBeDefined();
+          expect(organizerSocket.connected).toBeFalsy();
+          done();
+        });
+      });
+    });
+
+    describe('disconnect from liveSession namespace', () => {
+      let organizerSocket: ClientSocket;
+
+      // connect
+      beforeEach((done) => {
+        organizerSocket = ioc(
+          process.env.SERVER_URL +
+            `/livesession/${testSessionData.liveSessions[0].id}`,
+          {
+            extraHeaders: { userId: organizer.id.toString() },
+          }
+        );
+
+        organizerSocket.on('connect', () => {
+          done();
+        });
+
+        organizerSocket.on('connect_error', done);
+      });
+
+      // disconnect if still connected
+      afterEach((done) => {
+        if (organizerSocket.connected) {
+          organizerSocket.disconnect();
+        }
+
         done();
       });
 
-      clientSocket.on('connect_error', done);
-    });
-
-    // disconnect if still connected
-    afterEach((done) => {
-      if (clientSocket.connected) {
-        clientSocket.disconnect();
-      }
-
-      done();
-    });
-
-    // organizer의 socket이 disconnect시, live session의 status가 paused로 update되는데 이를 복구한다.
-    afterEach(async () => {
-      for (const liveSession of testSessionData.liveSessions) {
-        await prismaClient.session.update({
-          data: {
-            ...liveSession,
-            session_live: {
-              update: {
-                data: liveSession.session_live,
+      // organizer의 socket이 disconnect시, live session의 status가 paused로 update되는데 이를 복구한다.
+      afterEach(async () => {
+        for (const liveSession of testSessionData.liveSessions) {
+          await prismaClient.session.update({
+            data: {
+              ...liveSession,
+              session_live: {
+                update: {
+                  data: liveSession.session_live,
+                },
               },
             },
-          },
-          where: {
-            id: liveSession.id,
-          },
+            where: {
+              id: liveSession.id,
+            },
+          });
+        }
+      });
+
+      // disconnect 후에는 live session의 status가 pause되어야한다.
+      test('Disconnect_Should_Pause_Live_Session', async () => {
+        organizerSocket.disconnect();
+        organizerSocket.on('disconnect', async () => {
+          expect(organizerSocket.disconnected);
+
+          const sessionLive = await prismaClient.session_live.findFirst({
+            where: { session_id: testSessionData.liveSessions[0].id },
+          });
+
+          expect(sessionLive).toBeDefined();
+
+          expect(sessionLive!.status == liveSessionStatus.paused);
         });
-      }
-    });
-
-    // disconnect 후에는 live session의 status가 pause되어야한다.
-    test('Disconnect_Should_Pause_Live_Session', async () => {
-      clientSocket.disconnect();
-      clientSocket.on('disconnect', async () => {
-        expect(clientSocket.disconnected);
-
-        const sessionLive = await prismaClient.session_live.findFirst({
-          where: { session_id: testSessionData.liveSessions[0].id },
-        });
-
-        expect(sessionLive).toBeDefined();
-
-        expect(sessionLive!.status == liveSessionStatus.paused);
       });
     });
   });
