@@ -10,3 +10,8 @@ export const enum liveSessionStatus {
   paused,
   closed,
 }
+
+export const enum Role {
+  participant = 1,
+  organizer,
+}

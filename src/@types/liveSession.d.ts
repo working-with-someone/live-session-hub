@@ -1,6 +1,6 @@
-export type liveSessionRole = 'organizer' | 'participant';
+import { Role } from '../enums/session';
 
 export interface liveSession {
   id: string;
-  role: liveSessionRole;
+  role: Role;
 }
