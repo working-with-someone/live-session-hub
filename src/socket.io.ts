@@ -6,6 +6,7 @@ import { liveSessionPermission } from './middleware/socket/permission';
 import registerStreamHandler from './handler/streamHandler';
 import assignFfmpegProcessToOrganizer from './middleware/socket/assignFfmpegProcess';
 import { Server } from 'node:http';
+import { Role } from './enums/session';
 
 export function attachSocketIoServer(httpServer: Server) {
   const socketIoServer = new SocketIoServer(httpServer, {
@@ -27,6 +28,8 @@ export function attachSocketIoServer(httpServer: Server) {
   liveSessionNsp.use(assignFfmpegProcessToOrganizer);
 
   liveSessionNsp.on('connection', (socket) => {
-    registerStreamHandler(liveSessionNsp, socket);
+    if (socket.liveSession.role == Role.organizer) {
+      registerStreamHandler(liveSessionNsp, socket);
+    }
   });
 }

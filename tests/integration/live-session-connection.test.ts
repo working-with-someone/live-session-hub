@@ -5,6 +5,7 @@ import ioc from 'socket.io-client';
 import { Socket as ClientSocket } from 'socket.io-client';
 import { httpServer } from '../../src/http';
 import { liveSessionStatus } from '../../src/enums/session';
+import fs from 'node:fs';
 
 describe('Connection', () => {
   afterAll(() => {
@@ -140,6 +141,46 @@ describe('Connection', () => {
         });
       });
     });
+
+    describe('push live session stream', () => {
+      let participantSocket: ClientSocket;
+
+      beforeEach((done) => {
+        participantSocket = ioc(
+          process.env.SERVER_URL +
+            `/livesession/${testSessionData.liveSessions[0].id}`,
+          {
+            extraHeaders: { userId: participant.id.toString() },
+          }
+        );
+
+        participantSocket.on('connect', () => {
+          done();
+        });
+      });
+
+      afterEach((done) => {
+        if (participantSocket.connected) {
+          participantSocket.disconnect();
+        }
+
+        done();
+      });
+
+      test('Participant_Can_Not_Push_Stream', (done) => {
+        const cb = jest.fn();
+        participantSocket.emit(
+          'stream:push',
+          fs.readFileSync('tests/video/video.webm'),
+          cb
+        );
+
+        setTimeout(() => {
+          expect(cb).not.toHaveBeenCalled();
+          done();
+        }, 1000);
+      });
+    });
   });
 
   describe('Organizer', () => {
@@ -263,6 +304,47 @@ describe('Connection', () => {
 
           expect(sessionLive!.status == liveSessionStatus.paused);
         });
+      });
+    });
+
+    describe('ffmpeg process', () => {
+      let organizerSocket: ClientSocket;
+
+      beforeEach((done) => {
+        organizerSocket = ioc(
+          process.env.SERVER_URL +
+            `/livesession/${testSessionData.liveSessions[0].id}`,
+          {
+            extraHeaders: { userId: organizer.id.toString() },
+          }
+        );
+
+        organizerSocket.on('connect', () => {
+          done();
+        });
+      });
+
+      afterEach((done) => {
+        if (organizerSocket.connected) {
+          organizerSocket.disconnect();
+        }
+
+        done();
+      });
+
+      test('Organizer_Can_Push_Stream', (done) => {
+        const cb = jest.fn();
+
+        organizerSocket.emit(
+          'stream:push',
+          fs.readFileSync('tests/video/video.webm'),
+          cb
+        );
+
+        setTimeout(() => {
+          expect(cb).toHaveBeenCalled();
+          done();
+        }, 1000);
       });
     });
   });
