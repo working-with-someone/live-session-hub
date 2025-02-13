@@ -9,4 +9,5 @@ module.exports = {
     '<rootDir>/tests/jest/setup/mock.ts',
     '<rootDir>/tests/jest/setup/run.ts',
   ],
+  roots: ['<rootDir>/tests'],
 };
