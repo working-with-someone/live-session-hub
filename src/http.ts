@@ -1,11 +1,10 @@
 import { createServer } from 'node:http';
-import app from './app';
 import { attachSocketIoServer } from './socket.io';
 
 import prismaClient from './database/clients/prisma';
 import redisClient from './database/clients/redis';
 
-export const httpServer = createServer(app);
+export const httpServer = createServer();
 
 export function run() {
   httpServer.listen(process.env.PORT, () => {
