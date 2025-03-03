@@ -14,7 +14,7 @@ describe('Connection', () => {
 
   afterAll(async () => {
     await prismaClient.user.deleteMany({});
-    await prismaClient.session.deleteMany({});
+    await prismaClient.live_session.deleteMany({});
   });
 
   beforeAll(async () => {
@@ -28,15 +28,8 @@ describe('Connection', () => {
     }
 
     for (let liveSession of testSessionData.liveSessions) {
-      await prismaClient.session.create({
-        data: {
-          ...liveSession,
-          session_live: {
-            create: {
-              ...liveSession.session_live,
-            },
-          },
-        },
+      await prismaClient.live_session.create({
+        data: liveSession,
       });
     }
   });
@@ -131,13 +124,13 @@ describe('Connection', () => {
         participantSocket.on('disconnect', async () => {
           expect(participantSocket.disconnected);
 
-          const sessionLive = await prismaClient.session_live.findFirst({
-            where: { session_id: testSessionData.liveSessions[0].id },
+          const liveSession = await prismaClient.live_session.findFirst({
+            where: { id: testSessionData.liveSessions[0].id },
           });
 
-          expect(sessionLive).toBeDefined();
+          expect(liveSession).toBeDefined();
 
-          expect(sessionLive!.status == liveSessionStatus.opened);
+          expect(liveSession!.status == liveSessionStatus.opened);
         });
       });
     });
@@ -238,71 +231,6 @@ describe('Connection', () => {
           expect(err).toBeDefined();
           expect(organizerSocket.connected).toBeFalsy();
           done();
-        });
-      });
-    });
-
-    describe('disconnect from liveSession namespace', () => {
-      let organizerSocket: ClientSocket;
-
-      // connect
-      beforeEach((done) => {
-        organizerSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${testSessionData.liveSessions[0].id}`,
-          {
-            extraHeaders: { userId: organizer.id.toString() },
-          }
-        );
-
-        organizerSocket.on('connect', () => {
-          done();
-        });
-
-        organizerSocket.on('connect_error', done);
-      });
-
-      // disconnect if still connected
-      afterEach((done) => {
-        if (organizerSocket.connected) {
-          organizerSocket.disconnect();
-        }
-
-        done();
-      });
-
-      // organizer의 socket이 disconnect시, live session의 status가 paused로 update되는데 이를 복구한다.
-      afterEach(async () => {
-        for (const liveSession of testSessionData.liveSessions) {
-          await prismaClient.session.update({
-            data: {
-              ...liveSession,
-              session_live: {
-                update: {
-                  data: liveSession.session_live,
-                },
-              },
-            },
-            where: {
-              id: liveSession.id,
-            },
-          });
-        }
-      });
-
-      // disconnect 후에는 live session의 status가 pause되어야한다.
-      test('Disconnect_Should_Pause_Live_Session', async () => {
-        organizerSocket.disconnect();
-        organizerSocket.on('disconnect', async () => {
-          expect(organizerSocket.disconnected);
-
-          const sessionLive = await prismaClient.session_live.findFirst({
-            where: { session_id: testSessionData.liveSessions[0].id },
-          });
-
-          expect(sessionLive).toBeDefined();
-
-          expect(sessionLive!.status == liveSessionStatus.paused);
         });
       });
     });

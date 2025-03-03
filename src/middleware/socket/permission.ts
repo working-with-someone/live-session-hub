@@ -10,12 +10,9 @@ export const liveSessionPermission = async (
 ) => {
   const liveSessionId = socket.nsp.name.split('/').pop();
 
-  const liveSession = await prismaClient.session.findUnique({
+  const liveSession = await prismaClient.live_session.findUnique({
     where: {
       id: liveSessionId,
-    },
-    include: {
-      session_live: true,
     },
   });
 

@@ -22,10 +22,14 @@ model user {
   pfp                pfp?
   followers_count    Int                 @default(0)
   followings_count   Int                 @default(0)
-  followers          follow[]            @relation("following")
-  following          follow[]            @relation("follower")
-  session            session[]
-  allow_list         session_allow[]
+
+  followers follow[] @relation("following")
+  following follow[] @relation("follower")
+
+  live_session             live_session[]
+  video_session            video_session[]
+  live_session_allow_list  live_session_allow[]
+  video_session_allow_list video_session_allow[]
 }
 
 model pfp {
@@ -73,12 +77,42 @@ model follow {
   @@id([follower_user_id, following_user_id])
 }
 
-model session {
+model live_session {
   id            String  @id
   title         String  @db.VarChar(100)
   description   String? @db.Text
-  thumbnail_url String
-  is_live       Boolean
+  thumbnail_uri String
+  category      String
+  status        Int
+  stream_key    String
+  // 1 : public 2 : followersOnly 3 : private
+  access_level  Int     @default(1)
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @default(now())
+  started_at DateTime?
+
+  organizer_id Int
+  organizer    user                 @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
+  allow        live_session_allow[]
+}
+
+model live_session_allow {
+  user            user         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id         Int
+  live_session    live_session @relation(fields: [live_session_id], references: [id], onDelete: Cascade)
+  live_session_id String
+
+  @@id([live_session_id, user_id])
+}
+
+model video_session {
+  id            String  @id
+  title         String  @db.VarChar(100)
+  description   String? @db.Text
+  thumbnail_uri String
+  category      String
+  duration      BigInt
   // 1 : public 2 : followersOnly 3 : private
   access_level  Int     @default(1)
 
@@ -86,25 +120,15 @@ model session {
   updated_at DateTime @default(now())
 
   organizer_id Int
-  organizer    user            @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
-  category     String
-  session_live session_live?
-  allow_list   session_allow[]
+  organizer    user                  @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
+  allow        video_session_allow[]
 }
 
-model session_live {
-  started_at DateTime?
-  // 1 : ready, 2 : opened 3 : paused 4 : closed
-  status     Int
-  session    session   @relation(fields: [session_id], references: [id], onDelete: Cascade)
-  session_id String    @unique
-}
+model video_session_allow {
+  user             user          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id          Int
+  video_session    video_session @relation(fields: [video_session_id], references: [id], onDelete: Cascade)
+  video_session_id String
 
-model session_allow {
-  user       user    @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  user_id    Int
-  session    session @relation(fields: [session_id], references: [id], onDelete: Cascade)
-  session_id String
-
-  @@id([session_id, user_id])
+  @@id([video_session_id, user_id])
 }
