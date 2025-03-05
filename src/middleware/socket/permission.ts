@@ -21,14 +21,12 @@ export const liveSessionPermission = async (
   }
 
   const role: Role =
-    liveSession.organizer_id == socket.userId
+    liveSession.organizer_id == socket.user.id
       ? Role.organizer
       : Role.participant;
 
-  socket.liveSession = {
-    id: liveSession.id,
-    role,
-  };
+  socket.liveSession = liveSession;
+  socket.role = role;
 
   return next();
 };

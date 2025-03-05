@@ -8,7 +8,7 @@ const assignFfmpegProcessToOrganizer = async (
   next: (err?: ExtendedError) => void
 ) => {
   // organizer일 경우에만
-  if (socket.liveSession.role === Role.organizer) {
+  if (socket.role === Role.organizer) {
     const process = ffmpegProcessPool.getOrCreateProcess(socket.liveSession.id);
 
     process.stdin.on('error', (err) => {

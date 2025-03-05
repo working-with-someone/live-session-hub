@@ -28,7 +28,7 @@ export function attachSocketIoServer(httpServer: Server) {
   liveSessionNsp.use(assignFfmpegProcessToOrganizer);
 
   liveSessionNsp.on('connection', (socket) => {
-    if (socket.liveSession.role == Role.organizer) {
+    if (socket.role == Role.organizer) {
       registerStreamHandler(liveSessionNsp, socket);
     }
   });

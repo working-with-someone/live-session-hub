@@ -3,6 +3,7 @@ import { ExtendedError } from 'socket.io';
 import { Request } from 'express';
 import { wwsError } from '../../error/wwsError';
 import httpStatusCode from 'http-status-codes';
+import prismaClient from '../../database/clients/prisma';
 
 const socketAuthMiddleware = async (
   socket: Socket,
@@ -11,8 +12,19 @@ const socketAuthMiddleware = async (
   const req = socket.request as Request;
 
   if (req.session.userId) {
-    socket.userId = req.session.userId;
-    return next();
+    const user = await prismaClient.user.findFirst({
+      where: {
+        id: req.session.userId,
+      },
+      include: {
+        pfp: true,
+      },
+    });
+
+    if (user) {
+      socket.user = user;
+      return next();
+    }
   }
 
   return next(new wwsError(httpStatusCode.UNAUTHORIZED));
