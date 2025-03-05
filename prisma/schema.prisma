@@ -30,6 +30,7 @@ model user {
   video_session            video_session[]
   live_session_allow_list  live_session_allow[]
   video_session_allow_list video_session_allow[]
+  live_session_chat        live_session_chat[]
 }
 
 model pfp {
@@ -92,9 +93,10 @@ model live_session {
   updated_at DateTime  @default(now())
   started_at DateTime?
 
-  organizer_id Int
-  organizer    user                 @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
-  allow        live_session_allow[]
+  organizer_id      Int
+  organizer         user                 @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
+  allow             live_session_allow[]
+  live_session_chat live_session_chat[]
 }
 
 model live_session_allow {
@@ -104,6 +106,17 @@ model live_session_allow {
   live_session_id String
 
   @@id([live_session_id, user_id])
+}
+
+model live_session_chat {
+  id         Int      @id @default(autoincrement())
+  message    String
+  created_at DateTime
+
+  live_session_id String
+  live_session    live_session @relation(fields: [live_session_id], references: [id], onDelete: Cascade)
+  user_id         Int
+  user            user         @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model video_session {
