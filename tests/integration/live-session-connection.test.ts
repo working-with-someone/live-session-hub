@@ -6,6 +6,7 @@ import { Socket as ClientSocket } from 'socket.io-client';
 import { httpServer } from '../../src/http';
 import { liveSessionStatus } from '../../src/enums/session';
 import fs from 'node:fs';
+import WS_CHANNELS from '../../src/constants/channels';
 
 describe('Connection', () => {
   afterAll(() => {
@@ -163,7 +164,7 @@ describe('Connection', () => {
       test('Participant_Can_Not_Push_Stream', (done) => {
         const cb = jest.fn();
         participantSocket.emit(
-          'stream:push',
+          WS_CHANNELS.stream.push,
           fs.readFileSync('tests/video/video.webm'),
           cb
         );
@@ -264,7 +265,7 @@ describe('Connection', () => {
         const cb = jest.fn();
 
         organizerSocket.emit(
-          'stream:push',
+          WS_CHANNELS.stream.push,
           fs.readFileSync('tests/video/video.webm'),
           cb
         );
