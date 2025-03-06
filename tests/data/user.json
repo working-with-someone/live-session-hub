@@ -25,8 +25,7 @@
       "email": "email@test.com",
       "pfp": {
         "curr": "/media/images/default/pfp",
-        "is_default": true,
-        "user_id": 1
+        "is_default": true
       },
       "email_verification": {
         "create": {
@@ -43,8 +42,7 @@
       "email": "testEmail1@test.com",
       "pfp": {
         "curr": "/media/images/default/pfp",
-        "is_default": true,
-        "user_id": 2
+        "is_default": true
       },
       "email_verification": {
         "create": {
@@ -60,8 +58,7 @@
       "encrypted_password": "$2b$10$6ZbxBKRk1qdhySGQeN5Iw.CTA4XFCVGL9KHkZnabitdjSRegvBif2",
       "pfp": {
         "curr": "/media/images/default/pfp",
-        "is_default": true,
-        "user_id": 3
+        "is_default": true
       },
       "email": "testEmail2@test.com",
       "email_verification": {
@@ -78,8 +75,7 @@
       "encrypted_password": "$2b$10$6ZbxBKRk1qdhySGQeN5Iw.CTA4XFCVGL9KHkZnabitdjSRegvBif2",
       "pfp": {
         "curr": "/media/images/default/pfp",
-        "is_default": true,
-        "user_id": 4
+        "is_default": true
       },
       "email": "testEmail3@test.com",
       "email_verification": {
