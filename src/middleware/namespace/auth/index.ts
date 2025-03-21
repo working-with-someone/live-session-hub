@@ -1,11 +1,11 @@
 import { Socket } from 'socket.io';
 import { ExtendedError } from 'socket.io';
 import { Request } from 'express';
-import { wwsError } from '../../error/wwsError';
+import { wwsError } from '../../../error/wwsError';
 import httpStatusCode from 'http-status-codes';
-import prismaClient from '../../database/clients/prisma';
+import prismaClient from '../../../database/clients/prisma';
 
-const socketAuthMiddleware = async (
+const attachUserOrUnauthorized = async (
   socket: Socket,
   next: (err?: ExtendedError) => void
 ) => {
@@ -30,4 +30,8 @@ const socketAuthMiddleware = async (
   return next(new wwsError(httpStatusCode.UNAUTHORIZED));
 };
 
-export default socketAuthMiddleware;
+const authMiddleware = {
+  attachUserOrUnauthorized
+};
+
+export default authMiddleware;

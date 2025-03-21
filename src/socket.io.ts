@@ -1,10 +1,9 @@
 import { Server as SocketIoServer } from 'socket.io';
-import socketAuthMiddleware from './middleware/socket/auth';
+import authMiddleware from './middleware/namespace/auth';
 import session from 'express-session';
 import sessionConfig from './config/session.config';
-import { liveSessionPermission } from './middleware/socket/permission';
+import liveSessionMiddleware from './middleware/namespace/session';
 import registerStreamHandler from './handler/streamHandler';
-import assignFfmpegProcessToOrganizer from './middleware/socket/assignFfmpegProcess';
 import { Server } from 'node:http';
 import { Role } from './enums/session';
 import chatHandler from './handler/chatHandler';
@@ -24,9 +23,11 @@ export function attachSocketIoServer(httpServer: Server) {
   socketIoServer.engine.use(session(sessionConfig));
 
   // connection과정에서 한번만 실행된다.
-  liveSessionNsp.use(socketAuthMiddleware);
-  liveSessionNsp.use(liveSessionPermission);
-  liveSessionNsp.use(assignFfmpegProcessToOrganizer);
+  liveSessionNsp.use(authMiddleware.attachUserOrUnauthorized);
+
+  liveSessionNsp.use(liveSessionMiddleware.attachLiveSessionOrNotFound);
+  liveSessionNsp.use(liveSessionMiddleware.attachRole);
+  liveSessionNsp.use(liveSessionMiddleware.attachFfmpegProcessToOrganizer);
 
   liveSessionNsp.on('connection', (socket) => {
     chatHandler(liveSessionNsp, socket);
