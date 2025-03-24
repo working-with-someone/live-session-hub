@@ -1,8 +1,18 @@
 import { Namespace, Socket } from 'socket.io';
 import WS_CHANNELS from '../constants/channels';
+import { ResponseCb } from '../@types/augmentation/socket/response';
+import { liveSessionStatus } from '../enums/session';
+import httpStatusCode from 'http-status-codes';
 
 const chatHandler = (nsp: Namespace, socket: Socket) => {
-  const chat = (msg: string) => {
+  const chat = (msg: string, cb: ResponseCb) => {
+    // chat is only allowed when the session is breaked
+    if (socket.liveSession.status != liveSessionStatus.breaked) {
+      return cb({
+        status: httpStatusCode.FORBIDDEN,
+      });
+    }
+
     socket.nsp.emit(WS_CHANNELS.chat.broadCastRecive, {
       msg,
       user: {
@@ -10,6 +20,10 @@ const chatHandler = (nsp: Namespace, socket: Socket) => {
         username: socket.user.username,
         pfp: socket.user.pfp?.curr,
       },
+    });
+
+    return cb({
+      status: httpStatusCode.OK,
     });
   };
 
