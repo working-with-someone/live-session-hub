@@ -21,6 +21,7 @@
     "test:integration": "dotenvx run --env-file=.env.test -- jest tests/integration --runInBand"
   },
   "devDependencies": {
+    "@faker-js/faker": "^9.6.0",
     "@types/express-session": "^1.18.1",
     "@types/http-status-codes": "^1.2.0",
     "@types/jest": "^29.5.14",
