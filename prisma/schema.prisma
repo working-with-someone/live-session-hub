@@ -94,18 +94,18 @@ model live_session {
   started_at DateTime?
 
   organizer_id      Int
-  organizer         user                 @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
+  organizer         user                     @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
   allow             live_session_allow[]
+  break_time        live_session_break_time?
   live_session_chat live_session_chat[]
 }
 
-model live_session_allow {
-  user            user         @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  user_id         Int
-  live_session    live_session @relation(fields: [live_session_id], references: [id], onDelete: Cascade)
-  live_session_id String
+model live_session_break_time {
+  session_id String @id
+  interval   Int
+  duration   Int
 
-  @@id([live_session_id, user_id])
+  live_session live_session? @relation(fields: [session_id], references: [id], onDelete: Cascade)
 }
 
 model live_session_chat {
@@ -117,6 +117,15 @@ model live_session_chat {
   live_session    live_session @relation(fields: [live_session_id], references: [id], onDelete: Cascade)
   user_id         Int
   user            user         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model live_session_allow {
+  user            user         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id         Int
+  live_session    live_session @relation(fields: [live_session_id], references: [id], onDelete: Cascade)
+  live_session_id String
+
+  @@id([live_session_id, user_id])
 }
 
 model video_session {
@@ -135,6 +144,8 @@ model video_session {
   organizer_id Int
   organizer    user                  @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
   allow        video_session_allow[]
+
+  break_time video_session_break_time?
 }
 
 model video_session_allow {
@@ -144,4 +155,12 @@ model video_session_allow {
   video_session_id String
 
   @@id([video_session_id, user_id])
+}
+
+model video_session_break_time {
+  session_id String @id
+  interval   Int
+  duration   Int
+
+  video_session video_session? @relation(fields: [session_id], references: [id], onDelete: Cascade)
 }
