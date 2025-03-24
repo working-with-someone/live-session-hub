@@ -119,8 +119,8 @@ describe('Connection', () => {
         done();
       });
 
-      // disconnect 후에는 live session의 status가 pause되어야한다.
-      test('Disconnect_Should_Pause_Live_Session', async () => {
+      // disconnect 후에는 live session의 status가 break되어야한다.
+      test('Disconnect_Should_Break_Live_Session', async () => {
         participantSocket.disconnect();
         participantSocket.on('disconnect', async () => {
           expect(participantSocket.disconnected);
