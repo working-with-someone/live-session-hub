@@ -7,6 +7,7 @@ import registerStreamHandler from './handler/streamHandler';
 import { Server } from 'node:http';
 import { Role } from './enums/session';
 import chatHandler from './handler/chatHandler';
+import registerTransitionHandler from './handler/transitionHandler';
 
 export function attachSocketIoServer(httpServer: Server) {
   const socketIoServer = new SocketIoServer(httpServer, {
@@ -34,6 +35,7 @@ export function attachSocketIoServer(httpServer: Server) {
 
     if (socket.role == Role.organizer) {
       registerStreamHandler(liveSessionNsp, socket);
+      registerTransitionHandler(liveSessionNsp, socket);
     }
   });
 }

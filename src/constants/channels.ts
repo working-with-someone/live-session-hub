@@ -6,6 +6,14 @@ const WS_CHANNELS = {
   stream: {
     push: 'stream:push',
   },
+  transition: {
+    open: 'transition:open',
+    break: 'transition:break',
+    broadCast: {
+      open: 'transition:broadcast:open',
+      break: 'transition:broadcast:break'
+    }
+  }
 };
 
 export default WS_CHANNELS;
