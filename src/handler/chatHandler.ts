@@ -3,13 +3,29 @@ import WS_CHANNELS from '../constants/channels';
 import { ResponseCb } from '../@types/augmentation/socket/response';
 import { liveSessionStatus } from '../enums/session';
 import httpStatusCode from 'http-status-codes';
+import prismaClient from '../database/clients/prisma';
 
 const chatHandler = (nsp: Namespace, socket: Socket) => {
-  const chat = (msg: string, cb: ResponseCb) => {
+  const chat = async (msg: string, cb: ResponseCb) => {
     // chat is only allowed when the session is breaked
-    if (socket.liveSession.status != liveSessionStatus.breaked) {
+
+    const liveSession = await prismaClient.live_session.findFirst({
+      where: {
+        id: socket.liveSession.id,
+      },
+    });
+
+    if (!liveSession) {
+      return cb({
+        status: httpStatusCode.NOT_FOUND,
+        message: 'can not found live session',
+      });
+    }
+
+    if (liveSession.status != liveSessionStatus.breaked) {
       return cb({
         status: httpStatusCode.FORBIDDEN,
+        message: 'session is not opened',
       });
     }
 
