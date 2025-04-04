@@ -4,7 +4,7 @@ import testSessionData from '../data/session.json';
 import ioc from 'socket.io-client';
 import { Socket as ClientSocket } from 'socket.io-client';
 import { httpServer } from '../../src/http';
-import { liveSessionStatus } from '../../src/enums/session';
+import { live_session_status } from '@prisma/client';
 import fs from 'node:fs';
 import WS_CHANNELS from '../../src/constants/channels';
 
@@ -131,7 +131,7 @@ describe('Connection', () => {
 
           expect(liveSession).toBeDefined();
 
-          expect(liveSession!.status == liveSessionStatus.opened);
+          expect(liveSession!.status == live_session_status.opened);
         });
       });
     });

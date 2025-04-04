@@ -1,21 +1,26 @@
-import { httpServer } from "../../src/http";
-import WS_CHANNELS from "../../src/constants/channels";
-import { Socket as ClientSocket } from "socket.io-client";
-import ioc from "socket.io-client";
-import prismaClient from "../../src/database/clients/prisma";
-import testUserData from "../data/user.json";
-import { CreatedTestLiveSession, createTestLiveSession } from "../data/live-session";
-import { accessLevel, liveSessionStatus } from "../../src/enums/session";
+import { httpServer } from '../../src/http';
+import WS_CHANNELS from '../../src/constants/channels';
+import { Socket as ClientSocket } from 'socket.io-client';
+import ioc from 'socket.io-client';
+import prismaClient from '../../src/database/clients/prisma';
+import testUserData from '../data/user.json';
+import {
+  CreatedTestLiveSession,
+  createTestLiveSession,
+} from '../data/live-session';
+import { accessLevel } from '../../src/enums/session';
+import { live_session_status } from '@prisma/client';
+
 import httpStatusCode from 'http-status-codes';
 
 describe('Transition Handler', () => {
   afterAll(() => {
     httpServer.close();
-  })
+  });
 
   afterAll(async () => {
     await prismaClient.user.deleteMany({});
-  })
+  });
 
   beforeAll(async () => {
     for (let user of testUserData.users) {
@@ -30,7 +35,6 @@ describe('Transition Handler', () => {
     }
   });
 
-
   describe('Broadcast Transition', () => {
     let organizer = testUserData.currUser;
     let participant1 = testUserData.users[1];
@@ -43,27 +47,26 @@ describe('Transition Handler', () => {
     let otherSessionParticipantSocket: ClientSocket; // Socket for the new participant
 
     describe('Open => Break', () => {
-      let openedLiveSession: CreatedTestLiveSession
-      let otherLiveSession: CreatedTestLiveSession
+      let openedLiveSession: CreatedTestLiveSession;
+      let otherLiveSession: CreatedTestLiveSession;
 
       beforeAll(async () => {
         openedLiveSession = await createTestLiveSession({
           access_level: accessLevel.public,
-          status: liveSessionStatus.opened,
+          status: live_session_status.OPENED,
           organizer_id: organizer.id,
         });
 
         otherLiveSession = await createTestLiveSession({
           access_level: accessLevel.public,
-          status: liveSessionStatus.opened,
-          organizer_id: organizer.id
-        })
-
-      })
+          status: live_session_status.OPENED,
+          organizer_id: organizer.id,
+        });
+      });
 
       afterAll(async () => {
-        await prismaClient.live_session.deleteMany({})
-      })
+        await prismaClient.live_session.deleteMany({});
+      });
 
       beforeEach((done) => {
         organizerSocket = ioc(
@@ -107,7 +110,7 @@ describe('Transition Handler', () => {
         participant1Socket.on('connect', onConnect);
         participant2Socket.on('connect', onConnect);
         otherSessionParticipantSocket.on('connect', onConnect);
-      })
+      });
 
       afterEach(() => {
         organizerSocket.disconnect();
@@ -116,7 +119,7 @@ describe('Transition Handler', () => {
         otherSessionParticipantSocket.disconnect();
       });
 
-      test("Response_200_Organizer_Transition", (done) => {
+      test('Response_200_Organizer_Transition', (done) => {
         const cb = jest.fn();
 
         organizerSocket.emit(WS_CHANNELS.transition.break, cb);
@@ -126,7 +129,7 @@ describe('Transition Handler', () => {
           expect(cb.mock.calls[0][0].status).toEqual(httpStatusCode.OK);
           done();
         }, 1000);
-      })
+      });
 
       test('Broadcasted_Transition_By_The_Organizer_Should_Be_Received_By_All_Participants', (done) => {
         let receivedCount = 0;
@@ -138,7 +141,7 @@ describe('Transition Handler', () => {
           if (receivedCount === expectedReceiveCount) {
             done();
           }
-        })
+        });
 
         participant1Socket.on(WS_CHANNELS.transition.broadCast.break, () => {
           receivedCount++;
@@ -146,7 +149,7 @@ describe('Transition Handler', () => {
           if (receivedCount === expectedReceiveCount) {
             done();
           }
-        })
+        });
 
         participant2Socket.on(WS_CHANNELS.transition.broadCast.break, () => {
           receivedCount++;
@@ -154,7 +157,7 @@ describe('Transition Handler', () => {
           if (receivedCount === expectedReceiveCount) {
             done();
           }
-        })
+        });
 
         // other live session의 participant는 broadcast를 받지 않아야한다.
         otherSessionParticipantSocket.on(
@@ -169,29 +172,29 @@ describe('Transition Handler', () => {
         );
 
         organizerSocket.emit(WS_CHANNELS.transition.break, jest.fn());
-      })
-    })
+      });
+    });
 
     describe('Break => Open', () => {
-      let breakedLiveSession: CreatedTestLiveSession
-      let otherLiveSession: CreatedTestLiveSession
+      let breakedLiveSession: CreatedTestLiveSession;
+      let otherLiveSession: CreatedTestLiveSession;
       beforeAll(async () => {
         breakedLiveSession = await createTestLiveSession({
           access_level: accessLevel.public,
-          status: liveSessionStatus.breaked,
+          status: live_session_status.BREAKED,
           organizer_id: organizer.id,
         });
 
         otherLiveSession = await createTestLiveSession({
           access_level: accessLevel.public,
-          status: liveSessionStatus.breaked,
-          organizer_id: organizer.id
-        })
-      })
+          status: live_session_status.BREAKED,
+          organizer_id: organizer.id,
+        });
+      });
 
       afterAll(async () => {
-        await prismaClient.live_session.deleteMany({})
-      })
+        await prismaClient.live_session.deleteMany({});
+      });
 
       beforeEach((done) => {
         organizerSocket = ioc(
@@ -235,18 +238,16 @@ describe('Transition Handler', () => {
         participant1Socket.on('connect', onConnect);
         participant2Socket.on('connect', onConnect);
         otherSessionParticipantSocket.on('connect', onConnect);
-      }
-      )
+      });
 
       afterEach(() => {
         organizerSocket.disconnect();
         participant1Socket.disconnect();
         participant2Socket.disconnect();
         otherSessionParticipantSocket.disconnect();
-      }
-      );
+      });
 
-      test("Response_200_Organizer_Transition", (done) => {
+      test('Response_200_Organizer_Transition', (done) => {
         const cb = jest.fn();
 
         organizerSocket.emit(WS_CHANNELS.transition.open, cb);
@@ -256,8 +257,7 @@ describe('Transition Handler', () => {
           expect(cb.mock.calls[0][0].status).toEqual(httpStatusCode.OK);
           done();
         }, 1000);
-      }
-      )
+      });
 
       test('Broadcasted_Transition_By_The_Organizer_Should_Be_Received_By_All_Participants', (done) => {
         let receivedCount = 0;
@@ -269,7 +269,7 @@ describe('Transition Handler', () => {
           if (receivedCount === expectedReceiveCount) {
             done();
           }
-        })
+        });
 
         participant1Socket.on(WS_CHANNELS.transition.broadCast.open, () => {
           receivedCount++;
@@ -277,7 +277,7 @@ describe('Transition Handler', () => {
           if (receivedCount === expectedReceiveCount) {
             done();
           }
-        })
+        });
 
         participant2Socket.on(WS_CHANNELS.transition.broadCast.open, () => {
           receivedCount++;
@@ -285,7 +285,7 @@ describe('Transition Handler', () => {
           if (receivedCount === expectedReceiveCount) {
             done();
           }
-        })
+        });
 
         // other live session의 participant는 broadcast를 받지 않아야한다.
         otherSessionParticipantSocket.on(
@@ -300,9 +300,7 @@ describe('Transition Handler', () => {
         );
 
         organizerSocket.emit(WS_CHANNELS.transition.open, jest.fn());
-      }
-      )
-    })
-  })
-
-})
+      });
+    });
+  });
+});

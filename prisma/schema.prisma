@@ -30,7 +30,6 @@ model user {
   video_session            video_session[]
   live_session_allow_list  live_session_allow[]
   video_session_allow_list video_session_allow[]
-  live_session_chat        live_session_chat[]
 }
 
 model pfp {
@@ -79,25 +78,31 @@ model follow {
 }
 
 model live_session {
-  id            String  @id
-  title         String  @db.VarChar(100)
-  description   String? @db.Text
+  id            String              @id
+  title         String              @db.VarChar(100)
+  description   String?             @db.Text
   thumbnail_uri String
   category      String
-  status        Int
+  status        live_session_status
   stream_key    String
   // 1 : public 2 : followersOnly 3 : private
-  access_level  Int     @default(1)
+  access_level  Int                 @default(1)
 
   created_at DateTime  @default(now())
   updated_at DateTime  @default(now())
   started_at DateTime?
 
-  organizer_id      Int
-  organizer         user                     @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
-  allow             live_session_allow[]
-  break_time        live_session_break_time?
-  live_session_chat live_session_chat[]
+  organizer_id Int
+  organizer    user                     @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
+  allow        live_session_allow[]
+  break_time   live_session_break_time?
+}
+
+enum live_session_status {
+  READY
+  OPENED
+  BREAKED
+  CLOSED
 }
 
 model live_session_break_time {
@@ -106,17 +111,6 @@ model live_session_break_time {
   duration   Int
 
   live_session live_session? @relation(fields: [session_id], references: [id], onDelete: Cascade)
-}
-
-model live_session_chat {
-  id         Int      @id @default(autoincrement())
-  message    String
-  created_at DateTime
-
-  live_session_id String
-  live_session    live_session @relation(fields: [live_session_id], references: [id], onDelete: Cascade)
-  user_id         Int
-  user            user         @relation(fields: [user_id], references: [id], onDelete: Cascade)
 }
 
 model live_session_allow {

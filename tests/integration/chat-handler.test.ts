@@ -8,7 +8,8 @@ import {
   CreatedTestLiveSession,
   createTestLiveSession,
 } from '../data/live-session';
-import { accessLevel, liveSessionStatus } from '../../src/enums/session';
+import { live_session_status } from '@prisma/client';
+import { accessLevel } from '../../src/enums/session';
 
 describe('Chat Handler', () => {
   afterAll(() => {
@@ -49,13 +50,13 @@ describe('Chat Handler', () => {
       beforeAll(async () => {
         breakedLiveSession = await createTestLiveSession({
           access_level: accessLevel.public,
-          status: liveSessionStatus.breaked,
+          status: live_session_status.BREAKED,
           organizer_id: organizer.id,
         });
 
         breakedLiveSession2 = await createTestLiveSession({
           access_level: accessLevel.public,
-          status: liveSessionStatus.breaked,
+          status: live_session_status.BREAKED,
           organizer_id: organizer.id,
         });
       });
@@ -260,7 +261,7 @@ describe('Chat Handler', () => {
       beforeAll(async () => {
         openedLiveSession = await createTestLiveSession({
           access_level: accessLevel.public,
-          status: liveSessionStatus.opened,
+          status: live_session_status.OPENED,
           organizer_id: organizer.id,
         });
       });

@@ -4,13 +4,6 @@ export const enum accessLevel {
   private,
 }
 
-export const enum liveSessionStatus {
-  ready = 1,
-  opened,
-  breaked,
-  closed,
-}
-
 export const enum Role {
   participant = 1,
   organizer,
