@@ -7,8 +7,13 @@ import { httpServer } from '../../src/http';
 import { live_session_status } from '@prisma/client';
 import fs from 'node:fs';
 import WS_CHANNELS from '../../src/constants/channels';
+import { createTestLiveSession } from '../data/live-session';
+import { accessLevel } from '../../src/enums/session';
+import { CreatedTestLiveSession } from '../data/live-session';
 
 describe('Connection', () => {
+  let openedLiveSession: CreatedTestLiveSession;
+
   afterAll(() => {
     httpServer.close();
   });
@@ -28,11 +33,13 @@ describe('Connection', () => {
       });
     }
 
-    for (let liveSession of testSessionData.liveSessions) {
-      await prismaClient.live_session.create({
-        data: liveSession,
-      });
-    }
+    const organizer = testUserData.currUser;
+
+    openedLiveSession = await createTestLiveSession({
+      access_level: accessLevel.public,
+      organizer_id: organizer.id,
+      status: live_session_status.OPENED,
+    });
   });
 
   describe('Participant', () => {
@@ -49,8 +56,7 @@ describe('Connection', () => {
 
       test('Connection_Establish', (done) => {
         participantSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${testSessionData.liveSessions[0].id}`,
+          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
           {
             extraHeaders: { userId: participant.id.toString() },
           }
@@ -99,8 +105,7 @@ describe('Connection', () => {
 
       beforeEach((done) => {
         participantSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${testSessionData.liveSessions[0].id}`,
+          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
           {
             extraHeaders: { userId: participant.id.toString() },
           }
@@ -126,12 +131,12 @@ describe('Connection', () => {
           expect(participantSocket.disconnected);
 
           const liveSession = await prismaClient.live_session.findFirst({
-            where: { id: testSessionData.liveSessions[0].id },
+            where: { id: openedLiveSession.id },
           });
 
           expect(liveSession).toBeDefined();
 
-          expect(liveSession!.status == live_session_status.opened);
+          expect(liveSession!.status == live_session_status.OPENED);
         });
       });
     });
@@ -141,8 +146,7 @@ describe('Connection', () => {
 
       beforeEach((done) => {
         participantSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${testSessionData.liveSessions[0].id}`,
+          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
           {
             extraHeaders: { userId: participant.id.toString() },
           }
@@ -191,8 +195,7 @@ describe('Connection', () => {
 
       test('Connection_Establish', (done) => {
         organizerSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${testSessionData.liveSessions[0].id}`,
+          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
@@ -241,8 +244,7 @@ describe('Connection', () => {
 
       beforeEach((done) => {
         organizerSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${testSessionData.liveSessions[0].id}`,
+          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }

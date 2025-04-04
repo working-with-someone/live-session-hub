@@ -91,7 +91,7 @@ describe('Transition Handler', () => {
         );
 
         otherSessionParticipantSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL + `/livesession/${otherLiveSession.id}`,
           {
             extraHeaders: { userId: otherSessionParticipant.id.toString() },
           }
@@ -219,7 +219,7 @@ describe('Transition Handler', () => {
         );
 
         otherSessionParticipantSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${breakedLiveSession.id}`,
+          process.env.SERVER_URL + `/livesession/${otherLiveSession.id}`,
           {
             extraHeaders: { userId: otherSessionParticipant.id.toString() },
           }
