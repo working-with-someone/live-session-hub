@@ -1,6 +1,6 @@
 import type { SessionOptions, CookieOptions } from 'express-session';
 import redisStoreConfig from '../config/redisStore.config';
-import RedisStore from 'connect-redis';
+import { RedisStore } from 'connect-redis';
 
 const cookieConfig: CookieOptions = {
   secure: false,
