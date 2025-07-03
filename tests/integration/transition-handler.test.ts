@@ -8,7 +8,7 @@ import {
   CreatedTestLiveSession,
   createTestLiveSession,
 } from '../data/live-session';
-import { accessLevel } from '../../src/enums/session';
+import { access_level } from '@prisma/client';
 import { live_session_status } from '@prisma/client';
 
 import httpStatusCode from 'http-status-codes';
@@ -52,13 +52,13 @@ describe('Transition Handler', () => {
 
       beforeAll(async () => {
         openedLiveSession = await createTestLiveSession({
-          access_level: accessLevel.public,
+          access_level: access_level.PUBLIC,
           status: live_session_status.OPENED,
           organizer_id: organizer.id,
         });
 
         otherLiveSession = await createTestLiveSession({
-          access_level: accessLevel.public,
+          access_level: access_level.PUBLIC,
           status: live_session_status.OPENED,
           organizer_id: organizer.id,
         });
@@ -180,13 +180,13 @@ describe('Transition Handler', () => {
       let otherLiveSession: CreatedTestLiveSession;
       beforeAll(async () => {
         breakedLiveSession = await createTestLiveSession({
-          access_level: accessLevel.public,
+          access_level: access_level.PUBLIC,
           status: live_session_status.BREAKED,
           organizer_id: organizer.id,
         });
 
         otherLiveSession = await createTestLiveSession({
-          access_level: accessLevel.public,
+          access_level: access_level.PUBLIC,
           status: live_session_status.BREAKED,
           organizer_id: organizer.id,
         });

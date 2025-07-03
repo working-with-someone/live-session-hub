@@ -5,10 +5,10 @@ import ioc from 'socket.io-client';
 import { Socket as ClientSocket } from 'socket.io-client';
 import { httpServer } from '../../src/http';
 import { live_session_status } from '@prisma/client';
-import fs from 'node:fs';
+import fs, { access } from 'node:fs';
 import WS_CHANNELS from '../../src/constants/channels';
 import { createTestLiveSession } from '../data/live-session';
-import { accessLevel } from '../../src/enums/session';
+import { access_level } from '@prisma/client';
 import { CreatedTestLiveSession } from '../data/live-session';
 
 describe('Connection', () => {
@@ -36,7 +36,7 @@ describe('Connection', () => {
     const organizer = testUserData.currUser;
 
     openedLiveSession = await createTestLiveSession({
-      access_level: accessLevel.public,
+      access_level: access_level.PUBLIC,
       organizer_id: organizer.id,
       status: live_session_status.OPENED,
     });

@@ -12,7 +12,7 @@
       "started_at": "2023-09-22T12:34:56.789Z",
       "organizer_id": 1,
       "category": "code",
-      "status": 2
+      "status": "OPENED"
     },
     {
       "id": "fa89b6ed-c479-485f-b221-47fb05bc7433",
@@ -26,7 +26,7 @@
       "started_at": "2023-09-22T12:34:56.789Z",
       "organizer_id": 1,
       "category": "code",
-      "status": 2
+      "status": "OPENED"
     }
   ]
 }

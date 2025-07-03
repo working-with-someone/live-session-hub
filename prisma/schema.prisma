@@ -77,6 +77,12 @@ model follow {
   @@id([follower_user_id, following_user_id])
 }
 
+enum access_level {
+  PUBLIC
+  FOLLOWER_ONLY
+  PRIVATE
+}
+
 model live_session {
   id            String              @id
   title         String              @db.VarChar(100)
@@ -86,16 +92,17 @@ model live_session {
   status        live_session_status
   stream_key    String
   // 1 : public 2 : followersOnly 3 : private
-  access_level  Int                 @default(1)
+  access_level  access_level        @default(PUBLIC)
 
   created_at DateTime  @default(now())
   updated_at DateTime  @default(now())
   started_at DateTime?
 
-  organizer_id Int
-  organizer    user                     @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
-  allow        live_session_allow[]
-  break_time   live_session_break_time?
+  organizer_id                Int
+  organizer                   user                          @relation(fields: [organizer_id], references: [id], onDelete: Cascade)
+  allow                       live_session_allow[]
+  break_time                  live_session_break_time?
+  live_session_transition_log live_session_transition_log[]
 }
 
 enum live_session_status {
@@ -103,6 +110,15 @@ enum live_session_status {
   OPENED
   BREAKED
   CLOSED
+}
+
+model live_session_transition_log {
+  id              Int                 @id @default(autoincrement())
+  live_session    live_session        @relation(fields: [live_session_id], references: [id], onDelete: Cascade)
+  live_session_id String
+  from_state      live_session_status
+  to_state        live_session_status
+  transitioned_at DateTime            @default(now())
 }
 
 model live_session_break_time {
