@@ -26,8 +26,9 @@ model user {
   followers follow[] @relation("following")
   following follow[] @relation("follower")
 
-  live_session             live_session[]
-  video_session            video_session[]
+  live_session  live_session[]
+  video_session video_session[]
+
   live_session_allow_list  live_session_allow[]
   video_session_allow_list video_session_allow[]
 }
@@ -88,11 +89,10 @@ model live_session {
   title         String              @db.VarChar(100)
   description   String?             @db.Text
   thumbnail_uri String
-  category      String
   status        live_session_status
   stream_key    String
-  // 1 : public 2 : followersOnly 3 : private
-  access_level  access_level        @default(PUBLIC)
+
+  access_level access_level @default(PUBLIC)
 
   created_at DateTime  @default(now())
   updated_at DateTime  @default(now())
@@ -103,6 +103,11 @@ model live_session {
   allow                       live_session_allow[]
   break_time                  live_session_break_time?
   live_session_transition_log live_session_transition_log[]
+
+  category_label String
+  category       category @relation(fields: [category_label], references: [label])
+
+  @@fulltext([title, description])
 }
 
 enum live_session_status {
@@ -143,10 +148,9 @@ model video_session {
   title         String  @db.VarChar(100)
   description   String? @db.Text
   thumbnail_uri String
-  category      String
   duration      BigInt
-  // 1 : public 2 : followersOnly 3 : private
-  access_level  Int     @default(1)
+
+  access_level Int @default(1)
 
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
@@ -156,6 +160,9 @@ model video_session {
   allow        video_session_allow[]
 
   break_time video_session_break_time?
+
+  category_label String
+  category       category @relation(fields: [category_label], references: [label])
 }
 
 model video_session_allow {
@@ -173,4 +180,11 @@ model video_session_break_time {
   duration   Int
 
   video_session video_session? @relation(fields: [session_id], references: [id], onDelete: Cascade)
+}
+
+model category {
+  label String @id
+
+  live_session  live_session[]
+  video_session video_session[]
 }

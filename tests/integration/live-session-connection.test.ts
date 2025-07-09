@@ -7,12 +7,12 @@ import { httpServer } from '../../src/http';
 import { live_session_status } from '@prisma/client';
 import fs, { access } from 'node:fs';
 import WS_CHANNELS from '../../src/constants/channels';
-import { createTestLiveSession } from '../data/live-session';
 import { access_level } from '@prisma/client';
-import { CreatedTestLiveSession } from '../data/live-session';
+import liveSessionFactory, { LiveSessionWithAll } from '../factories/live-session-factory';
+
 
 describe('Connection', () => {
-  let openedLiveSession: CreatedTestLiveSession;
+  let openedLiveSession: LiveSessionWithAll;
 
   afterAll(() => {
     httpServer.close();
@@ -35,10 +35,12 @@ describe('Connection', () => {
 
     const organizer = testUserData.currUser;
 
-    openedLiveSession = await createTestLiveSession({
+    openedLiveSession = await liveSessionFactory.createAndSave({
       access_level: access_level.PUBLIC,
-      organizer_id: organizer.id,
       status: live_session_status.OPENED,
+      organizer: {
+        connect: { id: organizer.id }
+      },
     });
   });
 
@@ -86,7 +88,7 @@ describe('Connection', () => {
       test('Connection_Reject_LiveSession(does_not_exist)', (done) => {
         participantSocket = ioc(
           process.env.SERVER_URL +
-            '/livesession/11111111-1111-1111-1111-111111111111',
+          '/livesession/11111111-1111-1111-1111-111111111111',
           {
             extraHeaders: { userId: participant.id.toString() },
           }
@@ -225,7 +227,7 @@ describe('Connection', () => {
       test('Connection_Reject_LiveSession(does_not_exist)', (done) => {
         organizerSocket = ioc(
           process.env.SERVER_URL +
-            '/livesession/11111111-1111-1111-1111-111111111111',
+          '/livesession/11111111-1111-1111-1111-111111111111',
           {
             extraHeaders: { userId: organizer.id.toString() },
           }

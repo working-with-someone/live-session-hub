@@ -4,14 +4,12 @@ import { Socket as ClientSocket } from 'socket.io-client';
 import ioc from 'socket.io-client';
 import prismaClient from '../../src/database/clients/prisma';
 import testUserData from '../data/user.json';
-import {
-  CreatedTestLiveSession,
-  createTestLiveSession,
-} from '../data/live-session';
+
 import { access_level } from '@prisma/client';
 import { live_session_status } from '@prisma/client';
 
 import httpStatusCode from 'http-status-codes';
+import liveSessionFactory, { LiveSessionWithAll } from '../factories/live-session-factory';
 
 describe('Transition Handler', () => {
   afterAll(() => {
@@ -47,20 +45,24 @@ describe('Transition Handler', () => {
     let otherSessionParticipantSocket: ClientSocket; // Socket for the new participant
 
     describe('Open => Break', () => {
-      let openedLiveSession: CreatedTestLiveSession;
-      let otherLiveSession: CreatedTestLiveSession;
+      let openedLiveSession: LiveSessionWithAll;
+      let otherLiveSession: LiveSessionWithAll;
 
       beforeAll(async () => {
-        openedLiveSession = await createTestLiveSession({
+        openedLiveSession = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
           status: live_session_status.OPENED,
-          organizer_id: organizer.id,
+          organizer: {
+            connect: { id: organizer.id }
+          }
         });
 
-        otherLiveSession = await createTestLiveSession({
+        otherLiveSession = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
           status: live_session_status.OPENED,
-          organizer_id: organizer.id,
+          organizer: {
+            connect: { id: organizer.id }
+          }
         });
       });
 
@@ -176,19 +178,23 @@ describe('Transition Handler', () => {
     });
 
     describe('Break => Open', () => {
-      let breakedLiveSession: CreatedTestLiveSession;
-      let otherLiveSession: CreatedTestLiveSession;
+      let breakedLiveSession: LiveSessionWithAll;
+      let otherLiveSession: LiveSessionWithAll;
       beforeAll(async () => {
-        breakedLiveSession = await createTestLiveSession({
+        breakedLiveSession = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
           status: live_session_status.BREAKED,
-          organizer_id: organizer.id,
+          organizer: {
+            connect: { id: organizer.id }
+          }
         });
 
-        otherLiveSession = await createTestLiveSession({
+        otherLiveSession = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
           status: live_session_status.BREAKED,
-          organizer_id: organizer.id,
+          organizer: {
+            connect: { id: organizer.id }
+          }
         });
       });
 

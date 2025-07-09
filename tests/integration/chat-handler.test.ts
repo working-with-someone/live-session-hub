@@ -4,12 +4,9 @@ import prismaClient from '../../src/database/clients/prisma';
 import WS_CHANNELS from '../../src/constants/channels';
 import { Socket as ClientSocket } from 'socket.io-client';
 import ioc from 'socket.io-client';
-import {
-  CreatedTestLiveSession,
-  createTestLiveSession,
-} from '../data/live-session';
 import { live_session_status } from '@prisma/client';
 import { access_level } from '@prisma/client';
+import liveSessionFactory, { LiveSessionWithAll } from '../factories/live-session-factory';
 
 describe('Chat Handler', () => {
   afterAll(() => {
@@ -45,19 +42,23 @@ describe('Chat Handler', () => {
     let otherSessionParticipantSocket: ClientSocket; // Socket for the new participant
 
     describe('to breaked live session', () => {
-      let breakedLiveSession: CreatedTestLiveSession;
-      let breakedLiveSession2: CreatedTestLiveSession;
+      let breakedLiveSession: LiveSessionWithAll;
+      let breakedLiveSession2: LiveSessionWithAll;
       beforeAll(async () => {
-        breakedLiveSession = await createTestLiveSession({
+        breakedLiveSession = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
           status: live_session_status.BREAKED,
-          organizer_id: organizer.id,
+          organizer: {
+            connect: { id: organizer.id }
+          }
         });
 
-        breakedLiveSession2 = await createTestLiveSession({
+        breakedLiveSession2 = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
           status: live_session_status.BREAKED,
-          organizer_id: organizer.id,
+          organizer: {
+            connect: { id: organizer.id }
+          }
         });
       });
 
@@ -256,13 +257,15 @@ describe('Chat Handler', () => {
     });
 
     describe('to opened live session', () => {
-      let openedLiveSession: CreatedTestLiveSession;
+      let openedLiveSession: LiveSessionWithAll;
 
       beforeAll(async () => {
-        openedLiveSession = await createTestLiveSession({
+        openedLiveSession = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
           status: live_session_status.OPENED,
-          organizer_id: organizer.id,
+          organizer: {
+            connect: { id: organizer.id }
+          }
         });
       });
 
