@@ -8,8 +8,10 @@ import { live_session_status } from '@prisma/client';
 import fs, { access } from 'node:fs';
 import WS_CHANNELS from '../../src/constants/channels';
 import { access_level } from '@prisma/client';
-import liveSessionFactory, { LiveSessionWithAll } from '../factories/live-session-factory';
-
+import liveSessionFactory, {
+  LiveSessionWithAll,
+} from '../factories/live-session-factory';
+import { Role } from '../../src/enums/session';
 
 describe('Connection', () => {
   let openedLiveSession: LiveSessionWithAll;
@@ -39,7 +41,7 @@ describe('Connection', () => {
       access_level: access_level.PUBLIC,
       status: live_session_status.OPENED,
       organizer: {
-        connect: { id: organizer.id }
+        connect: { id: organizer.id },
       },
     });
   });
@@ -58,7 +60,8 @@ describe('Connection', () => {
 
       test('Connection_Establish', (done) => {
         participantSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant.id.toString() },
           }
@@ -72,7 +75,8 @@ describe('Connection', () => {
 
       test('Connection_Reject_LiveSession(?)', (done) => {
         participantSocket = ioc(
-          process.env.SERVER_URL + `/livesession/not-uuid`,
+          process.env.SERVER_URL +
+            `/livesession/not-uuid?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant.id.toString() },
           }
@@ -88,7 +92,7 @@ describe('Connection', () => {
       test('Connection_Reject_LiveSession(does_not_exist)', (done) => {
         participantSocket = ioc(
           process.env.SERVER_URL +
-          '/livesession/11111111-1111-1111-1111-111111111111',
+            `/livesession/11111111-1111-1111-1111-111111111111?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant.id.toString() },
           }
@@ -107,7 +111,8 @@ describe('Connection', () => {
 
       beforeEach((done) => {
         participantSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant.id.toString() },
           }
@@ -148,7 +153,8 @@ describe('Connection', () => {
 
       beforeEach((done) => {
         participantSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant.id.toString() },
           }
@@ -197,7 +203,8 @@ describe('Connection', () => {
 
       test('Connection_Establish', (done) => {
         organizerSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
@@ -211,7 +218,8 @@ describe('Connection', () => {
 
       test('Connection_Reject_LiveSession(?)', (done) => {
         organizerSocket = ioc(
-          process.env.SERVER_URL + `/livesession/not-uuid`,
+          process.env.SERVER_URL +
+            `/livesession/not-uuid?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
@@ -227,7 +235,7 @@ describe('Connection', () => {
       test('Connection_Reject_LiveSession(does_not_exist)', (done) => {
         organizerSocket = ioc(
           process.env.SERVER_URL +
-          '/livesession/11111111-1111-1111-1111-111111111111',
+            `/livesession/11111111-1111-1111-1111-111111111111?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
@@ -246,7 +254,8 @@ describe('Connection', () => {
 
       beforeEach((done) => {
         organizerSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }

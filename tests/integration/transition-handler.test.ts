@@ -9,7 +9,10 @@ import { access_level } from '@prisma/client';
 import { live_session_status } from '@prisma/client';
 
 import httpStatusCode from 'http-status-codes';
-import liveSessionFactory, { LiveSessionWithAll } from '../factories/live-session-factory';
+import liveSessionFactory, {
+  LiveSessionWithAll,
+} from '../factories/live-session-factory';
+import { Role } from '../../src/enums/session';
 
 describe('Transition Handler', () => {
   afterAll(() => {
@@ -53,16 +56,16 @@ describe('Transition Handler', () => {
           access_level: access_level.PUBLIC,
           status: live_session_status.OPENED,
           organizer: {
-            connect: { id: organizer.id }
-          }
+            connect: { id: organizer.id },
+          },
         });
 
         otherLiveSession = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
           status: live_session_status.OPENED,
           organizer: {
-            connect: { id: organizer.id }
-          }
+            connect: { id: organizer.id },
+          },
         });
       });
 
@@ -72,28 +75,32 @@ describe('Transition Handler', () => {
 
       beforeEach((done) => {
         organizerSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
         );
 
         participant1Socket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant1.id.toString() },
           }
         );
 
         participant2Socket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant2.id.toString() },
           }
         );
 
         otherSessionParticipantSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${otherLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${otherLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: otherSessionParticipant.id.toString() },
           }
@@ -185,16 +192,16 @@ describe('Transition Handler', () => {
           access_level: access_level.PUBLIC,
           status: live_session_status.BREAKED,
           organizer: {
-            connect: { id: organizer.id }
-          }
+            connect: { id: organizer.id },
+          },
         });
 
         otherLiveSession = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
           status: live_session_status.BREAKED,
           organizer: {
-            connect: { id: organizer.id }
-          }
+            connect: { id: organizer.id },
+          },
         });
       });
 
@@ -204,28 +211,32 @@ describe('Transition Handler', () => {
 
       beforeEach((done) => {
         organizerSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${breakedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${breakedLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
         );
 
         participant1Socket = ioc(
-          process.env.SERVER_URL + `/livesession/${breakedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${breakedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant1.id.toString() },
           }
         );
 
         participant2Socket = ioc(
-          process.env.SERVER_URL + `/livesession/${breakedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${breakedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant2.id.toString() },
           }
         );
 
         otherSessionParticipantSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${otherLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${otherLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: otherSessionParticipant.id.toString() },
           }

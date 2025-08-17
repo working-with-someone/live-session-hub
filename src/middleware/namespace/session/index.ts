@@ -24,24 +24,42 @@ export const attachLiveSessionOrNotFound = async (
   socket.liveSession = liveSession;
 
   return next();
-}
+};
 
 export const attachRole = async (
   socket: Socket,
   next: (err?: ExtendedError) => void
 ) => {
+  const query = socket.handshake.query;
 
+  if (
+    typeof query?.role != 'string' ||
+    !Object.values(Role).includes(query.role)
+  ) {
+    return next(
+      new wwsError(httpStatusCode.BAD_REQUEST, 'role does not specified')
+    );
+  }
+
+  // participant role을 요구한다면 바로 할당한다.
+  if (query?.role == Role.participant) {
+    socket.role = Role.participant;
+
+    return next();
+  }
+
+  // organization role을 요구한다면, 해당 live session의 owner인지 검증이 필요하다.
   const liveSession = socket.liveSession;
 
-  const role: Role =
-    liveSession.organizer_id == socket.user.id
-      ? Role.organizer
-      : Role.participant;
+  // 권한이없다면 401
+  if (liveSession.organizer_id != socket.user.id) {
+    return next(new wwsError(httpStatusCode.UNAUTHORIZED));
+  }
 
-  socket.role = role;
+  socket.role = Role.organizer;
 
   return next();
-}
+};
 
 const attachFfmpegProcessToOrganizer = async (
   socket: Socket,
@@ -82,7 +100,7 @@ const attachFfmpegProcessToOrganizer = async (
 const liveSessionMiddleware = {
   attachLiveSessionOrNotFound,
   attachRole,
-  attachFfmpegProcessToOrganizer
+  attachFfmpegProcessToOrganizer,
 };
 
-export default liveSessionMiddleware
+export default liveSessionMiddleware;

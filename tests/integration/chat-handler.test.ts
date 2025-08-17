@@ -6,7 +6,10 @@ import { Socket as ClientSocket } from 'socket.io-client';
 import ioc from 'socket.io-client';
 import { live_session_status } from '@prisma/client';
 import { access_level } from '@prisma/client';
-import liveSessionFactory, { LiveSessionWithAll } from '../factories/live-session-factory';
+import liveSessionFactory, {
+  LiveSessionWithAll,
+} from '../factories/live-session-factory';
+import { Role } from '../../src/enums/session';
 
 describe('Chat Handler', () => {
   afterAll(() => {
@@ -49,16 +52,16 @@ describe('Chat Handler', () => {
           access_level: access_level.PUBLIC,
           status: live_session_status.BREAKED,
           organizer: {
-            connect: { id: organizer.id }
-          }
+            connect: { id: organizer.id },
+          },
         });
 
         breakedLiveSession2 = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
           status: live_session_status.BREAKED,
           organizer: {
-            connect: { id: organizer.id }
-          }
+            connect: { id: organizer.id },
+          },
         });
       });
 
@@ -68,28 +71,32 @@ describe('Chat Handler', () => {
 
       beforeEach((done) => {
         organizerSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${breakedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${breakedLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
         );
 
         participant1Socket = ioc(
-          process.env.SERVER_URL + `/livesession/${breakedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${breakedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant1.id.toString() },
           }
         );
 
         participant2Socket = ioc(
-          process.env.SERVER_URL + `/livesession/${breakedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${breakedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant2.id.toString() },
           }
         );
 
         otherSessionParticipantSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${breakedLiveSession2.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${breakedLiveSession2.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: otherSessionParticipant.id.toString() },
           }
@@ -264,28 +271,31 @@ describe('Chat Handler', () => {
           access_level: access_level.PUBLIC,
           status: live_session_status.OPENED,
           organizer: {
-            connect: { id: organizer.id }
-          }
+            connect: { id: organizer.id },
+          },
         });
       });
 
       beforeEach((done) => {
         organizerSocket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
         );
 
         participant1Socket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant1.id.toString() },
           }
         );
 
         participant2Socket = ioc(
-          process.env.SERVER_URL + `/livesession/${openedLiveSession.id}`,
+          process.env.SERVER_URL +
+            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant2.id.toString() },
           }

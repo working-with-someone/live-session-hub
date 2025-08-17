@@ -1,4 +1,4 @@
-export const enum Role {
-  participant = 1,
-  organizer,
-}
+export const Role = {
+  participant: 'participant',
+  organizer: 'organizer',
+};
