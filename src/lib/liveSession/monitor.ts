@@ -1,27 +1,50 @@
 import { live_session_status } from '@prisma/client';
 import { liveSessionMonitorConfig } from '../../config/minitor.config';
 import prismaClient from '../../database/clients/prisma';
+import cron, { ScheduledTask } from 'node-cron';
 
 interface LiveSessionMonitorInfo {
   lastActivity: Date;
   sessionId: string;
-  organizerId: string;
+  organizerId: number;
 }
 
 class LiveSessionMonitor {
   sessions: Map<string, LiveSessionMonitorInfo>;
-  interval: number;
+  intervalCronEx: string;
   MaxInActiveTime: number;
-  intervalTimeout: NodeJS.Timeout | null = null;
+  monitorTask: ScheduledTask;
 
-  constructor(interval: number, maxInactiveTime: number) {
+  constructor(intervalCronEx: string, maxInactiveTime: number) {
     this.sessions = new Map();
-    this.interval = interval || 1000 * 30; // default 30 seconds
-    this.MaxInActiveTime = maxInactiveTime || 1000 * 60 * 1; // default 1 minute
+    this.intervalCronEx = intervalCronEx;
+    this.MaxInActiveTime = maxInactiveTime;
+
+    this.monitorTask = cron.createTask(
+      liveSessionMonitorConfig.intervalCronEx,
+      () => {
+        const now = new Date();
+
+        this.sessions.forEach((info, sessionId) => {
+          if (
+            now.getTime() - info.lastActivity.getTime() >
+            this.MaxInActiveTime
+          ) {
+            // live session의 status를 close로 update한다.
+            prismaClient.live_session.update({
+              where: { id: sessionId },
+              data: { status: live_session_status.CLOSED },
+            });
+
+            this.removeSession(sessionId);
+          }
+        });
+      }
+    );
   }
 
   // live session을 추가한다.
-  addSession(sessionId: string, organizerId: string) {
+  addSession(sessionId: string, organizerId: number) {
     // 이미 보유하고있다면, 추가하지 않는다.
     if (this.sessions.has(sessionId)) {
       return;
@@ -34,6 +57,10 @@ class LiveSessionMonitor {
     };
 
     this.sessions.set(sessionId, liveSessionMonitorInfo);
+  }
+
+  getSession(sessionId: string) {
+    return this.sessions.get(sessionId);
   }
 
   removeSession(sessionId: string) {
@@ -53,39 +80,21 @@ class LiveSessionMonitor {
     }
   }
 
-  // live session을 monitoring한다.
-  // interval마다 maxInactiveTime을 초과한 live session을 close상태로 update하고 monitoring 목록에서 제거한다.
   startMonitoring() {
-    this.intervalTimeout = setInterval(() => {
-      const now = new Date();
-
-      this.sessions.forEach((info, sessionId) => {
-        if (
-          now.getTime() - info.lastActivity.getTime() >
-          this.MaxInActiveTime
-        ) {
-          // live session의 status를 close로 update한다.
-          prismaClient.live_session.update({
-            where: { id: sessionId },
-            data: { status: live_session_status.CLOSED },
-          });
-
-          this.removeSession(sessionId);
-        }
-      });
-    }, this.interval);
+    if (this.monitorTask.getStatus() == 'stopped') {
+      this.monitorTask.start();
+    }
   }
-  // monitoring을 종료한다.
+
   stopMonitoring() {
-    if (this.intervalTimeout) {
-      clearInterval(this.intervalTimeout);
-      this.intervalTimeout = null;
+    if (this.monitorTask.getStatus() != 'stopped') {
+      this.monitorTask.stop();
     }
   }
 }
 
 const liveSessionMonitor = new LiveSessionMonitor(
-  liveSessionMonitorConfig.interval,
+  liveSessionMonitorConfig.intervalCronEx,
   liveSessionMonitorConfig.maxInactiveTime
 );
 
