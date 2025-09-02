@@ -1,12 +1,12 @@
 import 'socket.io';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
-import type { liveSession } from '../../liveSession';
 import { Prisma } from '@prisma/client';
 import { Role } from '../../../enums/session';
+import { LiveSession } from '../../../lib/liveSession/live-session';
 
 declare module 'socket.io' {
   interface Socket {
-    liveSession: Prisma.live_sessionGetPayload<true>;
+    liveSession: LiveSession;
     user: Prisma.userGetPayload<{
       include: {
         pfp: true;
@@ -15,4 +15,8 @@ declare module 'socket.io' {
     role: Role;
     ffmpegProcess: ChildProcessWithoutNullStreams;
   }
+
+  type socketWithLiveSession<T extends LiveSession> = Socket & {
+    liveSession: T;
+  };
 }

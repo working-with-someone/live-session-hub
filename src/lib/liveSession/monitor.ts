@@ -2,15 +2,10 @@ import { live_session_status } from '@prisma/client';
 import { liveSessionMonitorConfig } from '../../config/minitor.config';
 import prismaClient from '../../database/clients/prisma';
 import cron, { ScheduledTask } from 'node-cron';
-
-interface LiveSessionMonitorInfo {
-  lastActivity: Date;
-  sessionId: string;
-  organizerId: number;
-}
+import { OrganizerLiveSession } from './live-session';
 
 class LiveSessionMonitor {
-  sessions: Map<string, LiveSessionMonitorInfo>;
+  sessions: Map<string, OrganizerLiveSession>;
   intervalCronEx: string;
   MaxInActiveTime: number;
   monitorTask: ScheduledTask;
@@ -25,18 +20,20 @@ class LiveSessionMonitor {
       () => {
         const now = new Date();
 
-        this.sessions.forEach((info, sessionId) => {
+        this.sessions.forEach((liveSession, sessionId) => {
+          // open되어있는 상태라면
           if (
-            now.getTime() - info.lastActivity.getTime() >
-            this.MaxInActiveTime
+            liveSession.status === live_session_status.OPENED &&
+            liveSession.lastActivity
           ) {
-            // live session의 status를 close로 update한다.
-            prismaClient.live_session.update({
-              where: { id: sessionId },
-              data: { status: live_session_status.CLOSED },
-            });
+            if (
+              now.getTime() - liveSession.lastActivity!.getTime() >
+              this.MaxInActiveTime
+            ) {
+              this.removeSession(sessionId);
 
-            this.removeSession(sessionId);
+              liveSession.close().then(() => {});
+            }
           }
         });
       }
@@ -44,19 +41,29 @@ class LiveSessionMonitor {
   }
 
   // live session을 추가한다.
-  addSession(sessionId: string, organizerId: number) {
+  async addSession(sessionId: string) {
     // 이미 보유하고있다면, 추가하지 않는다.
     if (this.sessions.has(sessionId)) {
       return;
     }
 
-    const liveSessionMonitorInfo = {
-      lastActivity: new Date(),
-      sessionId,
-      organizerId,
-    };
+    await prismaClient.live_session.findUnique({
+      where: { id: sessionId },
+    });
 
-    this.sessions.set(sessionId, liveSessionMonitorInfo);
+    const data = await prismaClient.live_session.findUnique({
+      where: { id: sessionId },
+    });
+
+    if (!data) {
+      return null;
+    }
+
+    const liveSession = new OrganizerLiveSession(data!);
+
+    this.sessions.set(sessionId, liveSession);
+
+    return liveSession;
   }
 
   getSession(sessionId: string) {
@@ -69,15 +76,6 @@ class LiveSessionMonitor {
 
   clearSessions() {
     this.sessions.clear();
-  }
-
-  // live session의 lastActivity를 초기화한다.
-  touchSession(sessionId: string) {
-    const sessionInfo = this.sessions.get(sessionId);
-
-    if (sessionInfo) {
-      sessionInfo.lastActivity = new Date();
-    }
   }
 
   startMonitoring() {

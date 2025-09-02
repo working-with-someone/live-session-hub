@@ -1,4 +1,4 @@
-import { Server as SocketIoServer } from 'socket.io';
+import { Server as SocketIoServer, socketWithLiveSession } from 'socket.io';
 import authMiddleware from './middleware/namespace/auth';
 import session from 'express-session';
 import sessionConfig from './config/session.config';
@@ -8,6 +8,10 @@ import { Server } from 'node:http';
 import { Role } from './enums/session';
 import chatHandler from './handler/chatHandler';
 import registerTransitionHandler from './handler/transitionHandler';
+import {
+  LiveSession,
+  OrganizerLiveSession,
+} from './lib/liveSession/live-session';
 
 export function attachSocketIoServer(httpServer: Server) {
   const socketIoServer = new SocketIoServer(httpServer, {
@@ -26,16 +30,23 @@ export function attachSocketIoServer(httpServer: Server) {
   // connection과정에서 한번만 실행된다.
   liveSessionNsp.use(authMiddleware.attachUserOrUnauthorized);
 
-  liveSessionNsp.use(liveSessionMiddleware.attachLiveSessionOrNotFound);
-  liveSessionNsp.use(liveSessionMiddleware.attachRole);
+  liveSessionNsp.use(liveSessionMiddleware.attachLiveSessionRoleOrNotFound);
+  liveSessionNsp.use(liveSessionMiddleware.attachLiveSession);
   liveSessionNsp.use(liveSessionMiddleware.attachFfmpegProcessToOrganizer);
 
-  liveSessionNsp.on('connection', (socket) => {
-    chatHandler(liveSessionNsp, socket);
+  liveSessionNsp.on(
+    'connection',
+    (socket: socketWithLiveSession<LiveSession>) => {
+      chatHandler(liveSessionNsp, socket);
 
-    if (socket.role == Role.organizer) {
-      registerStreamHandler(liveSessionNsp, socket);
-      registerTransitionHandler(liveSessionNsp, socket);
+      // organizer에게만 register되는 handler
+      if (socket.role == Role.organizer) {
+        registerStreamHandler(liveSessionNsp, socket);
+        registerTransitionHandler(
+          liveSessionNsp,
+          socket as socketWithLiveSession<OrganizerLiveSession>
+        );
+      }
     }
-  });
+  );
 }

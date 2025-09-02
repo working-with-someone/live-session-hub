@@ -4,37 +4,33 @@ import { wwsError } from '../../../error/wwsError';
 import httpStatusCode from 'http-status-codes';
 import { Role } from '../../../enums/session';
 import ffmpegProcessPool from '../../../lib/ffmpeg/ffmpegProcessPool';
+import {
+  OrganizerLiveSession,
+  ParticipantLiveSession,
+} from '../../../lib/liveSession/live-session';
 
-export const attachLiveSessionOrNotFound = async (
+export const attachLiveSessionRoleOrNotFound = async (
   socket: Socket,
   next: (err?: ExtendedError) => void
 ) => {
   const liveSessionId = socket.nsp.name.split('/').pop();
 
-  const liveSession = await prismaClient.live_session.findUnique({
+  const query = socket.handshake.query;
+
+  const liveSessionData = await prismaClient.live_session.findUnique({
     where: {
       id: liveSessionId,
     },
   });
 
-  if (!liveSession) {
+  // 해당 live session이 존재하지 않는다면 not found
+  if (!liveSessionData) {
     return next(new wwsError(httpStatusCode.NOT_FOUND));
   }
 
-  socket.liveSession = liveSession;
-
-  return next();
-};
-
-export const attachRole = async (
-  socket: Socket,
-  next: (err?: ExtendedError) => void
-) => {
-  const query = socket.handshake.query;
-
   if (
     typeof query?.role != 'string' ||
-    !Object.values(Role).includes(query.role)
+    !Object.values(Role).includes(query.role as Role)
   ) {
     return next(
       new wwsError(httpStatusCode.BAD_REQUEST, 'role does not specified')
@@ -48,15 +44,33 @@ export const attachRole = async (
     return next();
   }
 
-  // organization role을 요구한다면, 해당 live session의 owner인지 검증이 필요하다.
-  const liveSession = socket.liveSession;
-
   // 권한이없다면 401
-  if (liveSession.organizer_id != socket.user.id) {
+  if (liveSessionData.organizer_id != socket.user.id) {
     return next(new wwsError(httpStatusCode.UNAUTHORIZED));
   }
 
   socket.role = Role.organizer;
+
+  return next();
+};
+
+export const attachLiveSession = async (
+  socket: Socket,
+  next: (err?: ExtendedError) => void
+) => {
+  const liveSessionId = socket.nsp.name.split('/').pop();
+
+  const liveSessionData = await prismaClient.live_session.findUnique({
+    where: {
+      id: liveSessionId,
+    },
+  });
+
+  if (socket.role === Role.participant) {
+    socket.liveSession = new ParticipantLiveSession(liveSessionData!);
+  } else if (socket.role === Role.organizer) {
+    socket.liveSession = new OrganizerLiveSession(liveSessionData!);
+  }
 
   return next();
 };
@@ -98,8 +112,8 @@ const attachFfmpegProcessToOrganizer = async (
 };
 
 const liveSessionMiddleware = {
-  attachLiveSessionOrNotFound,
-  attachRole,
+  attachLiveSessionRoleOrNotFound,
+  attachLiveSession,
   attachFfmpegProcessToOrganizer,
 };
 
