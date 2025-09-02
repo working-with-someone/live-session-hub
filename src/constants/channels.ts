@@ -7,13 +7,17 @@ const WS_CHANNELS = {
     push: 'stream:push',
   },
   transition: {
+    ready: 'transition:ready',
     open: 'transition:open',
     break: 'transition:break',
+    close: 'transition:close',
     broadCast: {
+      ready: 'transition:broadcast:ready',
       open: 'transition:broadcast:open',
-      break: 'transition:broadcast:break'
-    }
-  }
+      break: 'transition:broadcast:break',
+      close: 'transition:broadcast:close',
+    },
+  },
 };
 
 export default WS_CHANNELS;
