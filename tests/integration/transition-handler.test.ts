@@ -659,7 +659,6 @@ describe('Transition Handler', () => {
         const transitionCb = jest.fn();
         const otherLiveSessionParticipantTransitionListener = jest.fn();
         const checkComplete = async () => {
-          console.log('received!', receivedCount);
           receivedCount++;
           if (receivedCount === expectedReceiveCount) {
             expect(transitionCb).toHaveBeenCalled();

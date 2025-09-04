@@ -15,25 +15,20 @@ class LiveSessionMonitor {
     this.intervalCronEx = intervalCronEx;
     this.MaxInActiveTime = maxInactiveTime;
 
+    // monitoring되고있는 모든 status의 live session들은 max inactive time을 초과하면 close처리되고 monitoring에서 제외되어야한다.
     this.monitorTask = cron.createTask(
       liveSessionMonitorConfig.intervalCronEx,
       () => {
         const now = new Date();
 
         this.sessions.forEach((liveSession, sessionId) => {
-          // open되어있는 상태라면
           if (
-            liveSession.status === live_session_status.OPENED &&
-            liveSession.lastActivity
+            now.getTime() - liveSession.lastActivity!.getTime() >
+            this.MaxInActiveTime
           ) {
-            if (
-              now.getTime() - liveSession.lastActivity!.getTime() >
-              this.MaxInActiveTime
-            ) {
-              this.removeSession(sessionId);
+            this.removeSession(sessionId);
 
-              liveSession.close().then(() => {});
-            }
+            liveSession.close().then(() => {});
           }
         });
       }

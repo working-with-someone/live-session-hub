@@ -41,7 +41,10 @@ export function attachSocketIoServer(httpServer: Server) {
 
       // organizer에게만 register되는 handler
       if (socket.role == Role.organizer) {
-        registerStreamHandler(liveSessionNsp, socket);
+        registerStreamHandler(
+          liveSessionNsp,
+          socket as socketWithLiveSession<OrganizerLiveSession>
+        );
         registerTransitionHandler(
           liveSessionNsp,
           socket as socketWithLiveSession<OrganizerLiveSession>

@@ -44,11 +44,26 @@ export class OrganizerLiveSession extends LiveSession {
     super(data);
   }
 
+  // ready, opened, breaked live session만이 touch가 가능하다.
+  async touch() {
+    if (this.status === live_session_status.CLOSED) {
+      throw new Error('Live session is closed.');
+    }
+
+    // touch는 media push가 발생했을 때 call되며, live session이 ready라면 open status로 변환해줘야한다.
+    if (this.status === live_session_status.READY) {
+      await this.open();
+    }
+
+    this.lastActivity = new Date();
+  }
+
   async ready() {
     if (!this.isReadyable()) {
       throw new Error('Live session cannot be ready from current state.');
     }
   }
+
   async open() {
     if (!this.isOpenable()) {
       throw new Error('Live session cannot be opened from current state.');
@@ -86,7 +101,7 @@ export class OrganizerLiveSession extends LiveSession {
     return false;
   }
 
-  // ready, breaked => opened
+  // ready, opened, breaked => opened
   isOpenable() {
     return (
       this.status === live_session_status.BREAKED ||
