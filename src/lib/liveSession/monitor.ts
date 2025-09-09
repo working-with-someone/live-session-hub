@@ -42,10 +42,6 @@ class LiveSessionMonitor {
       return;
     }
 
-    await prismaClient.live_session.findUnique({
-      where: { id: sessionId },
-    });
-
     const data = await prismaClient.live_session.findUnique({
       where: { id: sessionId },
     });
