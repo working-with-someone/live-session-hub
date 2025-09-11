@@ -36,25 +36,15 @@ class LiveSessionMonitor {
   }
 
   // live session을 추가한다.
-  async addSession(sessionId: string) {
+  async addSession(session: OrganizerLiveSession) {
     // 이미 보유하고있다면, 추가하지 않는다.
-    if (this.sessions.has(sessionId)) {
+    if (this.sessions.has(session.id)) {
       return;
     }
 
-    const data = await prismaClient.live_session.findUnique({
-      where: { id: sessionId },
-    });
+    this.sessions.set(session.id, session);
 
-    if (!data) {
-      return null;
-    }
-
-    const liveSession = new OrganizerLiveSession(data!);
-
-    this.sessions.set(sessionId, liveSession);
-
-    return liveSession;
+    return session;
   }
 
   getSession(sessionId: string) {
