@@ -3,15 +3,14 @@ import { liveSessionMonitorConfig } from '../../config/minitor.config';
 import prismaClient from '../../database/clients/prisma';
 import cron, { ScheduledTask } from 'node-cron';
 import { OrganizerLiveSession } from './live-session';
+import liveSessionPool from './pool';
 
 class LiveSessionMonitor {
-  sessions: Map<string, OrganizerLiveSession>;
   intervalCronEx: string;
   MaxInActiveTime: number;
   monitorTask: ScheduledTask;
 
   constructor(intervalCronEx: string, maxInactiveTime: number) {
-    this.sessions = new Map();
     this.intervalCronEx = intervalCronEx;
     this.MaxInActiveTime = maxInactiveTime;
 
@@ -21,42 +20,18 @@ class LiveSessionMonitor {
       () => {
         const now = new Date();
 
-        this.sessions.forEach((liveSession, sessionId) => {
+        liveSessionPool.forEach((liveSession, sessionId) => {
           if (
             now.getTime() - liveSession.lastActivity!.getTime() >
             this.MaxInActiveTime
           ) {
-            this.removeSession(sessionId);
+            liveSessionPool.remove(liveSession.id);
 
             liveSession.close().then(() => {});
           }
         });
       }
     );
-  }
-
-  // live session을 추가한다.
-  async addSession(session: OrganizerLiveSession) {
-    // 이미 보유하고있다면, 추가하지 않는다.
-    if (this.sessions.has(session.id)) {
-      return;
-    }
-
-    this.sessions.set(session.id, session);
-
-    return session;
-  }
-
-  getSession(sessionId: string) {
-    return this.sessions.get(sessionId);
-  }
-
-  removeSession(sessionId: string) {
-    this.sessions.delete(sessionId);
-  }
-
-  clearSessions() {
-    this.sessions.clear();
   }
 
   startMonitoring() {

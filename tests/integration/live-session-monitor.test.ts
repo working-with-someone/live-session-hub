@@ -3,6 +3,8 @@ import liveSessionFactory from '../factories/live-session-factory';
 import { httpServer } from '../../src/http';
 import currUser from '../data/curr-user';
 import { live_session_status } from '@prisma/client';
+import { OrganizerLiveSession } from '../../src/lib/liveSession/live-session';
+import liveSessionPool from '../../src/lib/liveSession/pool';
 
 describe('Live Session Monitor', () => {
   beforeAll(async () => {
@@ -15,71 +17,82 @@ describe('Live Session Monitor', () => {
   });
 
   afterEach(() => {
-    liveSessionMonitor.clearSessions();
+    liveSessionPool.clear();
     liveSessionMonitor.stopMonitoring();
   });
 
   test('Add_Live_Session', async () => {
-    const newLiveSession = await liveSessionFactory.createAndSave({
-      organizer: {
-        connect: {
-          id: currUser.id,
+    const newLiveSession = new OrganizerLiveSession(
+      await liveSessionFactory.createAndSave({
+        organizer: {
+          connect: {
+            id: currUser.id,
+          },
         },
-      },
-    });
+      })
+    );
 
-    await liveSessionMonitor.addSession(newLiveSession.id);
+    liveSessionPool.add(newLiveSession);
 
-    const liveSession = liveSessionMonitor.getSession(newLiveSession.id);
+    const liveSession = liveSessionPool.get(newLiveSession.id);
 
     expect(liveSession).toBeDefined();
     expect(liveSession!.id).toBe(newLiveSession.id);
   });
 
   test('Get_Live_Session', async () => {
-    const newLiveSession = await liveSessionFactory.createAndSave({
-      organizer: {
-        connect: {
-          id: currUser.id,
+    const newLiveSession = new OrganizerLiveSession(
+      await liveSessionFactory.createAndSave({
+        organizer: {
+          connect: {
+            id: currUser.id,
+          },
         },
-      },
-    });
+      })
+    );
 
-    await liveSessionMonitor.addSession(newLiveSession.id);
+    await liveSessionPool.add(newLiveSession);
 
-    const liveSession = liveSessionMonitor.getSession(newLiveSession.id);
+    const liveSession = liveSessionPool.get(newLiveSession.id);
 
     expect(liveSession).toBeDefined();
     expect(liveSession!.id).toBe(newLiveSession.id);
   });
 
   test('Clear_Live_Session', async () => {
-    const newLiveSession = await liveSessionFactory.createAndSave({
-      organizer: {
-        connect: {
-          id: currUser.id,
+    const newLiveSession = new OrganizerLiveSession(
+      await liveSessionFactory.createAndSave({
+        organizer: {
+          connect: {
+            id: currUser.id,
+          },
         },
-      },
-    });
-    await liveSessionMonitor.addSession(newLiveSession.id);
-    liveSessionMonitor.clearSessions();
+      })
+    );
 
-    expect(liveSessionMonitor.sessions.size).toBe(0);
+    await liveSessionPool.add(newLiveSession);
+
+    liveSessionPool.clear();
+
+    expect(liveSessionPool.size).toBe(0);
   });
 
   test('Remove_Live_Session', async () => {
-    const newLiveSession = await liveSessionFactory.createAndSave({
-      organizer: {
-        connect: {
-          id: currUser.id,
+    const newLiveSession = new OrganizerLiveSession(
+      await liveSessionFactory.createAndSave({
+        organizer: {
+          connect: {
+            id: currUser.id,
+          },
         },
-      },
-    });
+      })
+    );
 
-    await liveSessionMonitor.addSession(newLiveSession.id);
-    liveSessionMonitor.removeSession(newLiveSession.id);
+    await liveSessionPool.add(newLiveSession);
 
-    expect(liveSessionMonitor.sessions.has(newLiveSession.id)).toBe(false);
+    liveSessionPool.remove(newLiveSession.id);
+
+    expect(liveSessionPool.has(newLiveSession.id)).toBe(false);
   });
 
   describe('Live_Session_Monitor_Cron_Task', () => {
@@ -96,46 +109,52 @@ describe('Live Session Monitor', () => {
     });
 
     test('Monitor_Task_Must_Remove_Expired_Live_Sessions', async () => {
-      const newLiveSession = await liveSessionFactory.createAndSave({
-        organizer: {
-          connect: {
-            id: currUser.id,
+      const newLiveSession = new OrganizerLiveSession(
+        await liveSessionFactory.createAndSave({
+          organizer: {
+            connect: {
+              id: currUser.id,
+            },
           },
-        },
-        status: live_session_status.OPENED,
-      });
+          status: live_session_status.OPENED,
+        })
+      );
+
+      await liveSessionPool.add(newLiveSession);
 
       liveSessionMonitor.startMonitoring();
 
-      await liveSessionMonitor.addSession(newLiveSession.id);
-
       // 60분 전이 마지막 활동인 live session
-      liveSessionMonitor.sessions.get(newLiveSession.id)!.lastActivity =
-        new Date(Date.now() - 1000 * 60 * 60);
+      liveSessionPool.get(newLiveSession.id)!.lastActivity = new Date(
+        Date.now() - 1000 * 60 * 60
+      );
 
       await liveSessionMonitor.monitorTask.execute();
 
-      expect(liveSessionMonitor.getSession(newLiveSession.id)).toBeUndefined();
+      expect(liveSessionPool.get(newLiveSession.id)).toBeUndefined();
     });
 
     test('Monitor_Task_Must_Not_Remove_Active_Live_Sessions', async () => {
-      const newLiveSession = await liveSessionFactory.createAndSave({
-        organizer: {
-          connect: {
-            id: currUser.id,
+      const newLiveSession = new OrganizerLiveSession(
+        await liveSessionFactory.createAndSave({
+          organizer: {
+            connect: {
+              id: currUser.id,
+            },
           },
-        },
-        status: live_session_status.READY,
-      });
+          status: live_session_status.READY,
+        })
+      );
+
+      liveSessionPool.add(newLiveSession);
 
       liveSessionMonitor.startMonitoring();
 
-      await liveSessionMonitor.addSession(newLiveSession.id);
-      await liveSessionMonitor.getSession(newLiveSession.id)!.touch();
+      await liveSessionPool.get(newLiveSession.id)!.touch();
 
       await liveSessionMonitor.monitorTask.execute();
 
-      expect(liveSessionMonitor.getSession(newLiveSession.id)).toBeDefined();
+      expect(liveSessionPool.get(newLiveSession.id)).toBeDefined();
     });
   });
 });

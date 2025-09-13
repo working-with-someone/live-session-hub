@@ -4,6 +4,7 @@ import WS_CHANNELS from '../constants/channels';
 import { live_session_status } from '@prisma/client';
 import { OrganizerLiveSession } from '../lib/liveSession/live-session';
 import liveSessionMonitor from '../lib/liveSession/monitor';
+import liveSessionPool from '../lib/liveSession/pool';
 
 const registerStreamHandler = (
   nsp: Namespace,
@@ -18,8 +19,8 @@ const registerStreamHandler = (
     }
 
     // media push가 이루어지고있다면, monitoring되어야한다.
-    if (!liveSessionMonitor.getSession(socket.liveSession.id)) {
-      liveSessionMonitor.addSession(socket.liveSession);
+    if (!liveSessionPool.has(socket.liveSession.id)) {
+      liveSessionPool.add(socket.liveSession);
     }
 
     socket.ffmpegProcess.stdin.write(Buffer.from(fileBuffer));
