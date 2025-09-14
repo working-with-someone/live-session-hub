@@ -3,7 +3,7 @@ import { attachSocketIoServer } from './socket.io';
 
 import prismaClient from './database/clients/prisma';
 import redisClient from './database/clients/redis';
-import liveSessionMonitor from './lib/liveSession/monitor';
+import { liveSessionExpireSchedular } from './lib/liveSession/schedular';
 
 export const httpServer = createServer();
 
@@ -15,13 +15,13 @@ export function run() {
 
     attachSocketIoServer(httpServer);
 
-    liveSessionMonitor.startMonitoring();
+    liveSessionExpireSchedular.startSchedule();
     prismaClient.$connect();
     redisClient.connect();
   });
 
   httpServer.on('close', () => {
-    liveSessionMonitor.stopMonitoring();
+    liveSessionExpireSchedular.stopSchedule();
     prismaClient.$disconnect();
     redisClient.disconnect();
   });

@@ -1,4 +1,4 @@
-import liveSessionMonitor from '../../src/lib/liveSession/monitor';
+import { liveSessionExpireSchedular } from '../../src/lib/liveSession/schedular';
 import liveSessionFactory from '../factories/live-session-factory';
 import { httpServer } from '../../src/http';
 import currUser from '../data/curr-user';
@@ -18,7 +18,7 @@ describe('Live Session Monitor', () => {
 
   afterEach(() => {
     liveSessionPool.clear();
-    liveSessionMonitor.stopMonitoring();
+    liveSessionExpireSchedular.stopSchedule();
   });
 
   test('Add_Live_Session', async () => {
@@ -97,15 +97,15 @@ describe('Live Session Monitor', () => {
 
   describe('Live_Session_Monitor_Cron_Task', () => {
     test('Start_Monitoring_Must_Start_Cron_Task', () => {
-      liveSessionMonitor.startMonitoring();
+      liveSessionExpireSchedular.startSchedule();
 
-      expect(liveSessionMonitor.monitorTask.getStatus()).toBe('idle');
+      expect(liveSessionExpireSchedular.task.getStatus()).toBe('idle');
     });
 
     test('Stop_Monitoring_Must_Stop_Cron_Task', () => {
-      liveSessionMonitor.stopMonitoring();
+      liveSessionExpireSchedular.stopSchedule();
 
-      expect(liveSessionMonitor.monitorTask.getStatus()).toBe('stopped');
+      expect(liveSessionExpireSchedular.task.getStatus()).toBe('stopped');
     });
 
     test('Monitor_Task_Must_Remove_Expired_Live_Sessions', async () => {
@@ -122,14 +122,14 @@ describe('Live Session Monitor', () => {
 
       await liveSessionPool.add(newLiveSession);
 
-      liveSessionMonitor.startMonitoring();
+      liveSessionExpireSchedular.startSchedule();
 
       // 60분 전이 마지막 활동인 live session
       liveSessionPool.get(newLiveSession.id)!.lastActivity = new Date(
         Date.now() - 1000 * 60 * 60
       );
 
-      await liveSessionMonitor.monitorTask.execute();
+      await liveSessionExpireSchedular.task.execute();
 
       expect(liveSessionPool.get(newLiveSession.id)).toBeUndefined();
     });
@@ -148,11 +148,11 @@ describe('Live Session Monitor', () => {
 
       liveSessionPool.add(newLiveSession);
 
-      liveSessionMonitor.startMonitoring();
+      liveSessionExpireSchedular.startSchedule();
 
       await liveSessionPool.get(newLiveSession.id)!.touch();
 
-      await liveSessionMonitor.monitorTask.execute();
+      await liveSessionExpireSchedular.task.execute();
 
       expect(liveSessionPool.get(newLiveSession.id)).toBeDefined();
     });

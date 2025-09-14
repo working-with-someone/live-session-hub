@@ -3,7 +3,6 @@ import { ResponseCb } from '../@types/augmentation/socket/response';
 import WS_CHANNELS from '../constants/channels';
 import { live_session_status } from '@prisma/client';
 import { OrganizerLiveSession } from '../lib/liveSession/live-session';
-import liveSessionMonitor from '../lib/liveSession/monitor';
 import liveSessionPool from '../lib/liveSession/pool';
 
 const registerStreamHandler = (
