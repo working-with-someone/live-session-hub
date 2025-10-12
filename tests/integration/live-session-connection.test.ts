@@ -8,10 +8,9 @@ import { live_session_status } from '@prisma/client';
 import fs, { access } from 'node:fs';
 import WS_CHANNELS from '../../src/constants/channels';
 import { access_level } from '@prisma/client';
-import liveSessionFactory, {
-  LiveSessionWithAll,
-} from '../factories/live-session-factory';
+import liveSessionFactory from '../factories/live-session-factory';
 import { Role } from '../../src/enums/session';
+import { LiveSessionWithAll } from '../../src/@types/liveSession';
 
 describe('Connection', () => {
   let openedLiveSession: LiveSessionWithAll;

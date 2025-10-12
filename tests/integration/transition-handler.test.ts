@@ -9,11 +9,10 @@ import { access_level } from '@prisma/client';
 import { live_session_status } from '@prisma/client';
 
 import httpStatusCode from 'http-status-codes';
-import liveSessionFactory, {
-  LiveSessionWithAll,
-} from '../factories/live-session-factory';
+import liveSessionFactory from '../factories/live-session-factory';
 import { Role } from '../../src/enums/session';
 import { ResponseCb } from '../../src/@types/augmentation/socket/response';
+import { LiveSessionWithAll } from '../../src/@types/liveSession';
 
 describe('Transition Handler', () => {
   afterAll(() => {

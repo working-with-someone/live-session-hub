@@ -1,21 +1,13 @@
 import { faker } from '@faker-js/faker';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { IFactory } from './factory';
+import { LiveSessionWithAll } from '../../src/@types/liveSession';
 
 const prisma = new PrismaClient();
 
 type OverRides = Prisma.live_sessionCreateInput & {
   organizer: { connect: { id: number } };
 };
-
-export type LiveSessionWithAll = Prisma.live_sessionGetPayload<{
-  include: {
-    organizer: true;
-    allow: true;
-    break_time: true;
-    live_session_transition_log: true;
-  };
-}>;
 
 class LiveSessionFactory implements IFactory<OverRides, LiveSessionWithAll> {
   create(overrides?: Partial<OverRides>): OverRides {
@@ -77,6 +69,7 @@ class LiveSessionFactory implements IFactory<OverRides, LiveSessionWithAll> {
         allow: true,
         break_time: true,
         live_session_transition_log: true,
+        category: true,
       },
     });
   }
@@ -105,6 +98,7 @@ class LiveSessionFactory implements IFactory<OverRides, LiveSessionWithAll> {
           allow: true,
           break_time: true,
           live_session_transition_log: true,
+          category: true,
         },
       });
 
