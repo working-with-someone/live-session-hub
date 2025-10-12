@@ -13,17 +13,12 @@ import liveSessionFactory from '../factories/live-session-factory';
 import { Role } from '../../src/enums/session';
 import { ResponseCb } from '../../src/@types/augmentation/socket/response';
 import { LiveSessionWithAll } from '../../src/@types/liveSession';
+import currUser from '../data/curr-user';
 
 describe('Transition Handler', () => {
-  afterAll(() => {
-    httpServer.close();
-  });
-
-  afterAll(async () => {
-    await prismaClient.user.deleteMany({});
-  });
-
   beforeAll(async () => {
+    await currUser.insert();
+
     for (let user of testUserData.users) {
       await prismaClient.user.create({
         data: {
@@ -36,8 +31,18 @@ describe('Transition Handler', () => {
     }
   });
 
+  afterAll(() => {
+    httpServer.close();
+  });
+
+  afterAll(async () => {
+    await liveSessionFactory.cleanup();
+    await prismaClient.user.deleteMany({});
+    await currUser.delete();
+  });
+
   describe('Broadcast Transition', () => {
-    let organizer = testUserData.currUser;
+    let organizer = currUser;
     let participant1 = testUserData.users[1];
     let participant2 = testUserData.users[2];
     let otherSessionParticipant = testUserData.users[3]; // New participant for a different session
@@ -70,6 +75,9 @@ describe('Transition Handler', () => {
       });
 
       beforeEach((done) => {
+        console.log('ready live session : ', readyLiveSession);
+        console.log('other live session : ', otherLiveSession);
+
         organizerSocket = ioc(
           process.env.SERVER_URL +
             `/livesession/${readyLiveSession.id}?role=${Role.organizer}`,

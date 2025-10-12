@@ -11,20 +11,14 @@ import { access_level } from '@prisma/client';
 import liveSessionFactory from '../factories/live-session-factory';
 import { Role } from '../../src/enums/session';
 import { LiveSessionWithAll } from '../../src/@types/liveSession';
+import currUser from '../data/curr-user';
 
 describe('Connection', () => {
   let openedLiveSession: LiveSessionWithAll;
 
-  afterAll(() => {
-    httpServer.close();
-  });
-
-  afterAll(async () => {
-    await prismaClient.user.deleteMany({});
-    await prismaClient.live_session.deleteMany({});
-  });
-
   beforeAll(async () => {
+    await currUser.insert();
+
     for (let user of testUserData.users) {
       await prismaClient.user.create({
         data: {
@@ -34,7 +28,7 @@ describe('Connection', () => {
       });
     }
 
-    const organizer = testUserData.currUser;
+    const organizer = currUser;
 
     openedLiveSession = await liveSessionFactory.createAndSave({
       access_level: access_level.PUBLIC,
@@ -43,6 +37,17 @@ describe('Connection', () => {
         connect: { id: organizer.id },
       },
     });
+  });
+
+  afterAll((done) => {
+    httpServer.close(done);
+  });
+
+  afterAll(async () => {
+    await currUser.delete();
+
+    await prismaClient.user.deleteMany({});
+    await prismaClient.live_session.deleteMany({});
   });
 
   describe('Participant', () => {
@@ -189,7 +194,7 @@ describe('Connection', () => {
   });
 
   describe('Organizer', () => {
-    const organizer = testUserData.currUser;
+    const organizer = currUser;
 
     describe('connect to liveSession namespace', () => {
       let organizerSocket: ClientSocket;

@@ -13,6 +13,9 @@ describe('Live Session Monitor', () => {
 
   afterAll(async () => {
     await currUser.delete();
+  });
+
+  afterAll((done) => {
     httpServer.close();
   });
 
