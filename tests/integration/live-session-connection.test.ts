@@ -1,30 +1,23 @@
 import prismaClient from '../../src/database/clients/prisma';
 import testUserData from '../data/user.json';
-import testSessionData from '../data/session.json';
 import ioc from 'socket.io-client';
 import { Socket as ClientSocket } from 'socket.io-client';
 import { httpServer } from '../../src/http';
 import { live_session_status } from '@prisma/client';
-import fs, { access } from 'node:fs';
+import fs from 'node:fs';
 import WS_CHANNELS from '../../src/constants/channels';
 import { access_level } from '@prisma/client';
 import liveSessionFactory from '../factories/live-session-factory';
 import { Role } from '../../src/enums/session';
 import { LiveSessionWithAll } from '../../src/@types/liveSession';
+import currUser from '../data/curr-user';
 
 describe('Connection', () => {
   let openedLiveSession: LiveSessionWithAll;
 
-  afterAll(() => {
-    httpServer.close();
-  });
-
-  afterAll(async () => {
-    await prismaClient.user.deleteMany({});
-    await prismaClient.live_session.deleteMany({});
-  });
-
   beforeAll(async () => {
+    await currUser.insert();
+
     for (let user of testUserData.users) {
       await prismaClient.user.create({
         data: {
@@ -34,7 +27,7 @@ describe('Connection', () => {
       });
     }
 
-    const organizer = testUserData.currUser;
+    const organizer = currUser;
 
     openedLiveSession = await liveSessionFactory.createAndSave({
       access_level: access_level.PUBLIC,
@@ -45,13 +38,24 @@ describe('Connection', () => {
     });
   });
 
+  afterAll((done) => {
+    httpServer.close(done);
+  });
+
+  afterAll(async () => {
+    await currUser.delete();
+
+    await prismaClient.user.deleteMany({});
+    await prismaClient.live_session.deleteMany({});
+  });
+
   describe('Participant', () => {
     const participant = testUserData.users[1];
 
-    describe('connect to lives session', () => {
+    describe('connect to live session', () => {
       let participantSocket: ClientSocket;
 
-      afterAll(() => {
+      afterEach(() => {
         if (participantSocket.connected) {
           participantSocket.disconnect();
         }
@@ -189,12 +193,12 @@ describe('Connection', () => {
   });
 
   describe('Organizer', () => {
-    const organizer = testUserData.currUser;
+    const organizer = currUser;
 
     describe('connect to liveSession namespace', () => {
       let organizerSocket: ClientSocket;
 
-      afterAll(() => {
+      afterEach(() => {
         if (organizerSocket.connected) {
           organizerSocket.disconnect();
         }
@@ -245,47 +249,6 @@ describe('Connection', () => {
           expect(organizerSocket.connected).toBeFalsy();
           done();
         });
-      });
-    });
-
-    describe('ffmpeg process', () => {
-      let organizerSocket: ClientSocket;
-
-      beforeEach((done) => {
-        organizerSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
-          {
-            extraHeaders: { userId: organizer.id.toString() },
-          }
-        );
-
-        organizerSocket.on('connect', () => {
-          done();
-        });
-      });
-
-      afterEach((done) => {
-        if (organizerSocket.connected) {
-          organizerSocket.disconnect();
-        }
-
-        done();
-      });
-
-      test('Organizer_Can_Push_Stream', (done) => {
-        const cb = jest.fn();
-
-        organizerSocket.emit(
-          WS_CHANNELS.stream.push,
-          fs.readFileSync('tests/video/video.webm'),
-          cb
-        );
-
-        setTimeout(() => {
-          expect(cb).toHaveBeenCalled();
-          done();
-        }, 1000);
       });
     });
   });

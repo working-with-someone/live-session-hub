@@ -6,21 +6,15 @@ import { Socket as ClientSocket } from 'socket.io-client';
 import ioc from 'socket.io-client';
 import { live_session_status } from '@prisma/client';
 import { access_level } from '@prisma/client';
-import liveSessionFactory, {
-  LiveSessionWithAll,
-} from '../factories/live-session-factory';
+import liveSessionFactory from '../factories/live-session-factory';
+import { LiveSessionWithAll } from '../../src/@types/liveSession';
 import { Role } from '../../src/enums/session';
+import currUser from '../data/curr-user';
 
 describe('Chat Handler', () => {
-  afterAll(() => {
-    httpServer.close();
-  });
-
-  afterAll(async () => {
-    await prismaClient.user.deleteMany({});
-  });
-
   beforeAll(async () => {
+    await currUser.insert();
+
     for (let user of testUserData.users) {
       await prismaClient.user.create({
         data: {
@@ -33,11 +27,20 @@ describe('Chat Handler', () => {
     }
   });
 
+  afterAll((done) => {
+    httpServer.close(done);
+    });
+
+  afterAll(async () => {
+    await currUser.delete();
+    await prismaClient.user.deleteMany({});
+  });
+
   describe(`BroadCast`, () => {
-    let organizer = testUserData.currUser;
-    let participant1 = testUserData.users[1];
-    let participant2 = testUserData.users[2];
-    let otherSessionParticipant = testUserData.users[3]; // New participant for a different session
+    let organizer = currUser;
+    let participant1 = testUserData.users[0];
+    let participant2 = testUserData.users[1];
+    let otherSessionParticipant = testUserData.users[2]; // New participant for a different session
 
     let organizerSocket: ClientSocket;
     let participant1Socket: ClientSocket;
@@ -47,6 +50,7 @@ describe('Chat Handler', () => {
     describe('to breaked live session', () => {
       let breakedLiveSession: LiveSessionWithAll;
       let breakedLiveSession2: LiveSessionWithAll;
+
       beforeAll(async () => {
         breakedLiveSession = await liveSessionFactory.createAndSave({
           access_level: access_level.PUBLIC,
