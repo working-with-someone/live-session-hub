@@ -13,7 +13,10 @@ describe('Live Session Monitor', () => {
 
   afterAll(async () => {
     await currUser.delete();
-    httpServer.close();
+  });
+
+  afterAll((done) => {
+    httpServer.close(done);
   });
 
   afterEach(() => {
