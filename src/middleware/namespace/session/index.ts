@@ -8,6 +8,7 @@ import {
   OrganizerLiveSession,
   ParticipantLiveSession,
 } from '../../../lib/liveSession/live-session';
+import { live_session_status } from '@prisma/client';
 
 export const attachLiveSessionRoleOrNotFound = async (
   socket: Socket,
@@ -65,6 +66,11 @@ export const attachLiveSession = async (
       id: liveSessionId,
     },
   });
+
+  // live session이 closed상태라면, connection을 reject한다.
+  if (liveSessionData!.status == live_session_status.CLOSED) {
+    next(new wwsError(httpStatusCode.GONE));
+  }
 
   if (socket.role === Role.participant) {
     socket.liveSession = new ParticipantLiveSession(liveSessionData!);
