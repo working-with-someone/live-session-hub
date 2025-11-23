@@ -27,7 +27,6 @@ function isErrorLine(line: string) {
     /Permission denied/,
     /No such file/,
     /Connection refused/,
-    /Stream mapping/,
     /Press.*to stop/,
     /Conversion failed/,
   ];
