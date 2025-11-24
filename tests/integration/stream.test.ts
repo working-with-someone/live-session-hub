@@ -108,7 +108,7 @@ describe('Stream', () => {
 
       organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
       organizerSocket.on(WS_CHANNELS.stream.error, (line) => {
-        done(new Error('encounter stream push'));
+        done(new Error(`Error Channel Emitted ${line}`));
       });
 
       setTimeout(() => {
@@ -196,7 +196,7 @@ describe('Stream', () => {
 
       organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
       organizerSocket.on(WS_CHANNELS.stream.error, (line) => {
-        done(new Error('encounter stream push'));
+        done(new Error(`Error Channel Emitted ${line}`));
       });
 
       setTimeout(() => {
@@ -284,7 +284,7 @@ describe('Stream', () => {
 
       organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
       organizerSocket.on(WS_CHANNELS.stream.error, (line) => {
-        done(new Error('encounter stream push'));
+        done(new Error(`Error Channel Emitted ${line}`));
       });
 
       setTimeout(() => {
@@ -330,6 +330,69 @@ describe('Stream', () => {
           done(new Error('organizer can not connect to closed live session'));
         }
       }, 2000);
+    });
+  });
+
+  describe('Streaming_Invalid_Data', () => {
+    const organizer = currUser;
+    let organizerSocket: ClientSocket;
+    let openedLiveSession: LiveSessionWithAll;
+
+    beforeAll(async () => {
+      openedLiveSession = await liveSessionFactory.createAndSave({
+        access_level: access_level.PUBLIC,
+        status: live_session_status.OPENED,
+        organizer: {
+          connect: { id: organizer.id },
+        },
+      });
+    });
+
+    beforeEach((done) => {
+      organizerSocket = ioc(
+        process.env.SERVER_URL +
+          `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
+        {
+          extraHeaders: { userId: organizer.id.toString() },
+        }
+      );
+
+      organizerSocket.on('error', (err) => {
+        done(err);
+      });
+      organizerSocket.on('connect', () => {
+        done();
+      });
+    });
+
+    afterEach((done) => {
+      if (organizerSocket.connected) {
+        organizerSocket.disconnect();
+
+        done();
+      }
+    });
+
+    afterAll(async () => {
+      liveSessionFactory.cleanup();
+    });
+
+    test('Emit_Stream_Error_When_Fake_Media_Buffer_Pushed', (done) => {
+      const fakeMediaBuffer = Buffer.alloc(128 * 128, 'hello world!');
+
+      const cb = jest.fn((resp) => {
+        // callback이 호출되었는지 확인
+        expect(cb).toHaveBeenCalledTimes(1);
+
+        // 응답 상태 확인
+        expect(resp.status).toBe(200);
+      });
+
+      organizerSocket.emit(WS_CHANNELS.stream.push, fakeMediaBuffer, cb);
+
+      organizerSocket.once(WS_CHANNELS.stream.error, () => {
+        done();
+      });
     });
   });
 });

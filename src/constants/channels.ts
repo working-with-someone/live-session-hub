@@ -5,6 +5,7 @@ const WS_CHANNELS = {
   },
   stream: {
     push: 'stream:push',
+    error: 'stream:error',
   },
   transition: {
     ready: 'transition:ready',

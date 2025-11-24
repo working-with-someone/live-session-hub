@@ -8,6 +8,8 @@ import {
   OrganizerLiveSession,
   ParticipantLiveSession,
 } from '../../../lib/liveSession/live-session';
+import ffmpegParser from '../../../utils/ffmpeg-parser';
+import WS_CHANNELS from '../../../constants/channels';
 import { live_session_status } from '@prisma/client';
 
 export const attachLiveSessionRoleOrNotFound = async (
@@ -89,22 +91,13 @@ const attachFfmpegProcessToOrganizer = async (
   if (socket.role === Role.organizer) {
     const process = ffmpegProcessPool.getOrCreateProcess(socket.liveSession.id);
 
-    process.stdin.on('error', (err) => {
-      console.log(err);
-    });
-
-    // ffmpeg는 진행 상태, message들을 stderr로 출력한다.
-    // spawn과정에서 stdio를 ignore하지 않았기 때문에 정보가 필요하지 않더라도, 이 pipe를 resume해주지 않으면 pipe blocking이 발생한다.
-    process.stderr.on('data', (data) => {
-      console.log('stderr : ', data.toString());
-    });
-
-    process.stdout.on('data', (data) => {
-      console.log('stdout ; ', data.toString());
-    });
-
-    process.on('error', (err) => {
-      console.log(err);
+    process.stderr.on('data', (output) => {
+      ffmpegParser.processFfmpegOutput(output.toString(), {
+        onError: (line) => {
+          socket.emit(WS_CHANNELS.stream.error, line);
+        },
+        // onProgress, onSuccess는 확실하게 판단할 수 없다고 생각. 아직 사용 x
+      });
     });
 
     socket.ffmpegProcess = process;
