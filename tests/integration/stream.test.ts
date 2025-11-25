@@ -92,9 +92,10 @@ describe('Stream', () => {
                   new Error(`live session translated to ${liveSession?.status}`)
                 );
               }
+            })
+            .catch((err) => {
+              done(err);
             });
-
-          done();
         }, 1000);
       });
 
@@ -113,7 +114,7 @@ describe('Stream', () => {
 
       setTimeout(() => {
         done();
-      }, 2000);
+      }, 1000);
     });
   });
 
@@ -169,7 +170,7 @@ describe('Stream', () => {
         // 응답 상태 확인
         expect(resp.status).toBe(200);
 
-        setTimeout(async () => {
+        setTimeout(() => {
           prismaClient.live_session
             .findFirst({
               where: { id: readyLiveSession.id },
@@ -182,6 +183,9 @@ describe('Stream', () => {
                   new Error(`live session translated to ${liveSession?.status}`)
                 );
               }
+            })
+            .catch((err) => {
+              done(err);
             });
         }, 1000);
       });
@@ -257,7 +261,7 @@ describe('Stream', () => {
         // 응답 상태 확인
         expect(resp.status).toBe(200);
 
-        setTimeout(async () => {
+        setTimeout(() => {
           prismaClient.live_session
             .findFirst({
               where: { id: breakedLiveSession.id },
@@ -270,6 +274,9 @@ describe('Stream', () => {
                   new Error(`live session translated to ${liveSession?.status}`)
                 );
               }
+            })
+            .catch((err) => {
+              done(err);
             });
         }, 1000);
       });
