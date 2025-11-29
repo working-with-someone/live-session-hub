@@ -3,7 +3,7 @@ import { attachSocketIoServer } from './socket.io';
 
 import prismaClient from './database/clients/prisma';
 import redisClient from './database/clients/redis';
-import { liveSessionExpireSchedular } from './lib/liveSession/schedular';
+import { liveSessionExpireSchedular } from './lib/liveSession/schedular/expire-schedular';
 
 export const httpServer = createServer();
 

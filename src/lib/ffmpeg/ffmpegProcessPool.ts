@@ -2,7 +2,6 @@ import { ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 
 class FFmpegProcessPool {
   pool: Map<string, ChildProcessWithoutNullStreams>;
-
   constructor() {
     this.pool = new Map();
   }

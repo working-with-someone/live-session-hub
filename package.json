@@ -17,6 +17,7 @@
     "db:reset:dev": "dotenvx run --env-file=.env.development -- prisma migrate reset",
     "db:reset:test": "dotenvx run --env-file=.env.test -- prisma migrate reset",
     "test": "dotenvx run --env-file=.env.test -- yarn run test:unit && yarn run test:integration",
+    "test:single": "dotenvx run --env-file=.env.test -- jest  --config=jest.config.integration.js",
     "test:unit": "dotenvx run --env-file=.env.test -- jest tests/unit --config=jest.config.unit.js",
     "test:integration": "dotenvx run --env-file=.env.test -- jest tests/integration --runInBand --config=jest.config.integration.js"
   },
@@ -45,10 +46,12 @@
     "@dotenvx/dotenvx": "^1.32.1",
     "@prisma/client": "^6.2.1",
     "connect-redis": "9.0.0",
+    "date-fns": "^4.1.0",
     "express-session": "^1.18.1",
     "http-status-codes": "^2.3.0",
     "node-cron": "^4.2.1",
     "prisma": "^6.2.1",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "tinyqueue": "^3.0.0"
   }
 }
