@@ -1,4 +1,4 @@
-import { liveSessionExpireSchedular } from '../../src/lib/liveSession/schedular';
+import { liveSessionExpireSchedular } from '../../src/lib/liveSession/schedular/expire-schedular';
 import liveSessionFactory from '../factories/live-session-factory';
 import { httpServer } from '../../src/http';
 import currUser from '../data/curr-user';

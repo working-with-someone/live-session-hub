@@ -1,28 +1,9 @@
-import cron, { ScheduledTask } from 'node-cron';
-import { liveSessionExpireScheduleConfig } from '../../config/schedule-config';
-import liveSessionPool from './pool';
+import { liveSessionExpireScheduleConfig } from '../../../config/schedule-config';
+import cron from 'node-cron';
+import LiveSessionScheduler from './scheduler';
+import liveSessionPool from '../pool';
 
-class LiveSessionSchedular {
-  task: ScheduledTask;
-
-  constructor(task: ScheduledTask) {
-    this.task = task;
-  }
-
-  startSchedule() {
-    if (this.task.getStatus() == 'stopped') {
-      this.task.start();
-    }
-  }
-
-  stopSchedule() {
-    if (this.task.getStatus() != 'stopped') {
-      this.task.stop();
-    }
-  }
-}
-
-class LiveSessionExpireSchedular extends LiveSessionSchedular {
+class LiveSessionExpireSchedular extends LiveSessionScheduler {
   constructor() {
     const config = liveSessionExpireScheduleConfig;
 
