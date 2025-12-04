@@ -11,6 +11,24 @@ export type LiveSessionWithAll = Prisma.live_sessionGetPayload<{
   };
 }>;
 
+export type LiveSessionSchedule = Prisma.live_sessionGetPayload<{
+  select: {
+    id: true;
+
+    break_time: {
+      select: {
+        interval: true;
+        duration: true;
+      };
+    };
+  };
+}> & {
+  nextBreakTime?: Date;
+  nextOpenTime?: Date;
+  openCb: () => void;
+  breakCb: () => void;
+};
+
 export interface liveSession {
   id: string;
   role: Role;
