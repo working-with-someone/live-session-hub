@@ -14,24 +14,37 @@ export interface FfmpegOutputCallbacks {
 
 const nlRegexp = /\r\n|\r|\n/g;
 
-function isErrorLine(line: string) {
-  const errorPatterns = [
-    /Error/,
-    /error/,
-    /Failed/,
-    /failed/,
-    /Cannot/,
-    /cannot/,
-    /Invalid/,
-    /invalid/,
-    /Permission denied/,
-    /No such file/,
-    /Connection refused/,
-    /Press.*to stop/,
-    /Conversion failed/,
-  ];
+const FLV_WARNING_PATTERNS = [
+  /Failed to update header with correct duration/,
+  /Failed to update header with correct filesize/,
+];
 
-  return errorPatterns.some((pattern) => pattern.test(line));
+const ERROR_PATTERNS = [
+  /Error/,
+  /error/,
+  /Failed/,
+  /failed/,
+  /Cannot/,
+  /cannot/,
+  /Invalid/,
+  /invalid/,
+  /Permission denied/,
+  /No such file/,
+  /Connection refused/,
+  /Press.*to stop/,
+  /Conversion failed/,
+];
+
+function isFlvWarningLine(line: string) {
+  return FLV_WARNING_PATTERNS.some((pattern) => pattern.test(line));
+}
+
+function isErrorLine(line: string) {
+  if (isFlvWarningLine(line)) {
+    return false; // flv warning은 error로 처리하지 않는다.
+  }
+
+  return ERROR_PATTERNS.some((pattern) => pattern.test(line));
 }
 
 function isSuccessLine(line: string) {
