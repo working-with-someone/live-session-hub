@@ -31,7 +31,7 @@ const attachUserOrUnauthorized = async (
 };
 
 const authMiddleware = {
-  attachUserOrUnauthorized
+  attachUserOrUnauthorized,
 };
 
 export default authMiddleware;

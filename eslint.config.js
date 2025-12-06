@@ -14,7 +14,7 @@ module.exports = tseslint.config(
       ecmaVersion: 2020,
       sourceType: 'module',
       globals: {
-        // Node.js globals
+        // node
         console: 'readonly',
         process: 'readonly',
         __dirname: 'readonly',
@@ -25,7 +25,7 @@ module.exports = tseslint.config(
         clearTimeout: 'readonly',
         setInterval: 'readonly',
         clearInterval: 'readonly',
-        // Browser globals
+        // browser
         window: 'readonly',
         document: 'readonly',
         navigator: 'readonly',
@@ -52,9 +52,11 @@ module.exports = tseslint.config(
     },
     rules: {
       ...jestPlugin.configs.recommended.rules,
+      'jest/no-done-callback': 'off',
+      'jest/no-conditional-expect': 'off',
     },
   },
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**'],
+    ignores: ['dist/**', 'node_modules/**', 'coverage/**', 'eslint.config.js'],
   }
 );

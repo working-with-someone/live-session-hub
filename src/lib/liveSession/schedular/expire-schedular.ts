@@ -10,7 +10,7 @@ class LiveSessionExpireSchedular extends LiveSessionScheduler {
     const task = cron.createTask(config.intervalCronEx, () => {
       const now = new Date();
 
-      liveSessionPool.forEach((liveSession, sessionId) => {
+      liveSessionPool.forEach((liveSession) => {
         if (
           now.getTime() - liveSession.lastActivity!.getTime() >
           config.maxInactiveTime

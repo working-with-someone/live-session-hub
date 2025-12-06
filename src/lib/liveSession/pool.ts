@@ -1,13 +1,12 @@
 import { OrganizerLiveSession } from './live-session';
 
-class LiveSessionPool extends Map<String, OrganizerLiveSession> {
+class LiveSessionPool extends Map<string, OrganizerLiveSession> {
   constructor() {
     super();
   }
 
   add(liveSession: OrganizerLiveSession) {
     if (this.has(liveSession.id)) {
-      console.warn(`live session ${liveSession.id} already exist`);
       return;
     }
 
@@ -16,7 +15,6 @@ class LiveSessionPool extends Map<String, OrganizerLiveSession> {
 
   remove(liveSessionId: string) {
     if (!this.has(liveSessionId)) {
-      console.warn(`live session ${liveSessionId} does not exist`);
       return;
     }
 

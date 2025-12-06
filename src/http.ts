@@ -9,6 +9,7 @@ export const httpServer = createServer();
 
 export function run() {
   httpServer.listen(process.env.PORT, () => {
+    /* eslint-disable-next-line no-console */
     console.log(
       `Live Session Hub Server is listening on port ${process.env.PORT} 🔥`
     );

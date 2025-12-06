@@ -18,7 +18,7 @@ describe('Connection', () => {
   beforeAll(async () => {
     await currUser.insert();
 
-    for (let user of testUserData.users) {
+    for (const user of testUserData.users) {
       await prismaClient.user.create({
         data: {
           ...user,
@@ -138,15 +138,13 @@ describe('Connection', () => {
       test('Disconnect_Should_Break_Live_Session', async () => {
         participantSocket.disconnect();
         participantSocket.on('disconnect', async () => {
-          expect(participantSocket.disconnected);
-
           const liveSession = await prismaClient.live_session.findFirst({
             where: { id: openedLiveSession.id },
           });
 
           expect(liveSession).toBeDefined();
 
-          expect(liveSession!.status == live_session_status.OPENED);
+          expect(liveSession!.status).toEqual(live_session_status.OPENED);
         });
       });
     });

@@ -1,4 +1,4 @@
-import { Namespace, Socket, socketWithLiveSession } from 'socket.io';
+import { Namespace, socketWithLiveSession } from 'socket.io';
 import WS_CHANNELS from '../constants/channels';
 import { ResponseCb } from '../@types/augmentation/socket/response';
 import httpStatusCode from 'http-status-codes';

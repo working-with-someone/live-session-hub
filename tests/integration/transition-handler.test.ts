@@ -430,8 +430,6 @@ describe('Transition Handler', () => {
       });
 
       test('Opened => Opened Must_Response_With_400', (done) => {
-        const otherLiveSessionParticipantTransitionListener = jest.fn();
-
         const transitionCb: ResponseCb = async ({ status }) => {
           expect(status).toEqual(400);
 

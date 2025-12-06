@@ -65,19 +65,19 @@ function isSuccessLine(line: string) {
   );
 }
 
-function extractError(stderr: string): string {
-  return stderr
-    .split(nlRegexp)
-    .reduce<string[]>((messages, message) => {
-      if (message.charAt(0) === ' ' || message.charAt(0) === '[') {
-        return [];
-      } else {
-        messages.push(message);
-        return messages;
-      }
-    }, [])
-    .join('\n');
-}
+// function extractError(stderr: string): string {
+//   return stderr
+//     .split(nlRegexp)
+//     .reduce<string[]>((messages, message) => {
+//       if (message.charAt(0) === ' ' || message.charAt(0) === '[') {
+//         return [];
+//       } else {
+//         messages.push(message);
+//         return messages;
+//       }
+//     }, [])
+//     .join('\n');
+// }
 
 function parseProgressLine(line: string) {
   const progress: FfmpegProgress = {};
@@ -111,9 +111,9 @@ export function processFfmpegOutput(
   lines.forEach((line) => {
     if (line.trim()) {
       if (isErrorLine(line)) {
-        onError && onError(line);
+        onError?.(line);
       } else if (isSuccessLine(line)) {
-        onSuccess && onSuccess(line);
+        onSuccess?.(line);
 
         // 진행상황 정보 파싱
         const progress = parseProgressLine(line);
@@ -121,7 +121,7 @@ export function processFfmpegOutput(
           onProgress(progress);
         }
       } else {
-        onInfo && onInfo(line);
+        onInfo?.(line);
       }
     }
   });

@@ -1,4 +1,3 @@
-import { addMinutes } from 'date-fns';
 import liveSessionFactory from '../factories/live-session-factory';
 import {
   liveSessionOpenScheduler,
@@ -9,9 +8,7 @@ import {
   liveSessionBreakHeap,
 } from '../../src/lib/liveSession/schedular/open-break-schedular';
 import currUser from '../data/curr-user';
-import { Socket as ClientSocket } from 'socket.io-client';
-import { LiveSessionWithAll } from '../../src/@types/liveSession';
-import { access_level, live_session_status } from '@prisma/client';
+import { httpServer } from '../../src/http';
 
 describe('Open Break Scheduler', () => {
   beforeAll(async () => {
@@ -32,6 +29,10 @@ describe('Open Break Scheduler', () => {
     liveSessionBreakScheduler.clear();
 
     await liveSessionFactory.cleanup();
+  });
+
+  afterAll((done) => {
+    httpServer.close(done);
   });
 
   // live session은

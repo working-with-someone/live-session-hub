@@ -3,4 +3,4 @@ export interface SocketResponse {
   message?: string;
 }
 
-export type ResponseCb = (res: SocketResponse) => {};
+export type ResponseCb = (res: SocketResponse) => void;

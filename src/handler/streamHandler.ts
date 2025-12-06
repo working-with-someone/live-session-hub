@@ -9,7 +9,7 @@ const registerStreamHandler = (
   nsp: Namespace,
   socket: socketWithLiveSession<OrganizerLiveSession>
 ) => {
-  const pushData = (fileBuffer: any, cb: ResponseCb) => {
+  const pushData = (fileBuffer: Buffer, cb: ResponseCb) => {
     if (socket.liveSession.status === live_session_status.CLOSED) {
       return cb({
         status: 400,

@@ -15,7 +15,7 @@ describe('Chat Handler', () => {
   beforeAll(async () => {
     await currUser.insert();
 
-    for (let user of testUserData.users) {
+    for (const user of testUserData.users) {
       await prismaClient.user.create({
         data: {
           ...user,
@@ -29,7 +29,7 @@ describe('Chat Handler', () => {
 
   afterAll((done) => {
     httpServer.close(done);
-    });
+  });
 
   afterAll(async () => {
     await currUser.delete();
@@ -37,10 +37,10 @@ describe('Chat Handler', () => {
   });
 
   describe(`BroadCast`, () => {
-    let organizer = currUser;
-    let participant1 = testUserData.users[0];
-    let participant2 = testUserData.users[1];
-    let otherSessionParticipant = testUserData.users[2]; // New participant for a different session
+    const organizer = currUser;
+    const participant1 = testUserData.users[0];
+    const participant2 = testUserData.users[1];
+    const otherSessionParticipant = testUserData.users[2]; // New participant for a different session
 
     let organizerSocket: ClientSocket;
     let participant1Socket: ClientSocket;
@@ -201,7 +201,7 @@ describe('Chat Handler', () => {
           (data) => {
             done(
               new Error(
-                'Other session participant should not receive this message'
+                `Other session participant should not receive this message : ${data}`
               )
             );
           }
@@ -257,7 +257,7 @@ describe('Chat Handler', () => {
           (data) => {
             done(
               new Error(
-                'Other session participant should not receive this message'
+                `Other session participant should not receive this message : ${data}`
               )
             );
           }

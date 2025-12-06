@@ -1,5 +1,4 @@
 import prismaClient from '../../src/database/clients/prisma';
-import testUserData from '../data/user.json';
 import ioc from 'socket.io-client';
 import { Socket as ClientSocket } from 'socket.io-client';
 import currUser from '../data/curr-user';
@@ -104,15 +103,15 @@ describe('Stream', () => {
 
     test('WS_Stream_Error_Channel_Must_Not_Be_Emitted', (done) => {
       const mediaBuffer = fs.readFileSync('tests/video/video.webm');
-
-      const cb = jest.fn((resp) => {});
-
-      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
-      organizerSocket.on(WS_CHANNELS.stream.error, (line) => {
+      const errorCb = jest.fn((line) => {
         done(new Error(`Error Channel Emitted ${line}`));
       });
 
+      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, () => {});
+      organizerSocket.on(WS_CHANNELS.stream.error, errorCb);
+
       setTimeout(() => {
+        expect(errorCb).not.toHaveBeenCalled();
         done();
       }, 1000);
     });
@@ -195,15 +194,15 @@ describe('Stream', () => {
 
     test('WS_Stream_Error_Channel_Must_Not_Be_Emitted', (done) => {
       const mediaBuffer = fs.readFileSync('tests/video/video.webm');
-
-      const cb = jest.fn((resp) => {});
-
-      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
-      organizerSocket.on(WS_CHANNELS.stream.error, (line) => {
+      const errorCb = jest.fn((line) => {
         done(new Error(`Error Channel Emitted ${line}`));
       });
 
+      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, () => {});
+      organizerSocket.on(WS_CHANNELS.stream.error, errorCb);
+
       setTimeout(() => {
+        expect(errorCb).not.toHaveBeenCalled();
         done();
       }, 2000);
     });
@@ -286,15 +285,17 @@ describe('Stream', () => {
 
     test('WS_Stream_Error_Channel_Must_Not_Be_Emitted', (done) => {
       const mediaBuffer = fs.readFileSync('tests/video/video.webm');
+      const errorCb = jest.fn((line) => {
+        done(new Error(`Error Channel Emitted ${line}`));
+      });
 
-      const cb = jest.fn((resp) => {});
-
-      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
+      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, () => {});
       organizerSocket.on(WS_CHANNELS.stream.error, (line) => {
         done(new Error(`Error Channel Emitted ${line}`));
       });
 
       setTimeout(() => {
+        expect(errorCb).not.toHaveBeenCalled();
         done();
       }, 2000);
     });

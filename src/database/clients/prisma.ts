@@ -17,8 +17,8 @@ const prismaClient = new PrismaClient({
   ],
 });
 
-prismaClient.$on('query', (e) => {
-  const message = `${e.query} / ${e.params} / ${e.duration}`;
+prismaClient.$on('query', () => {
+  // const message = `${e.query} / ${e.params} / ${e.duration}`;
 });
 
 export default prismaClient;

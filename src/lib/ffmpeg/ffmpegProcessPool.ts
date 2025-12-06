@@ -47,10 +47,6 @@ class FFmpegProcessPool {
     // create
     process = this.createProcess(liveSessionId);
 
-    process.on('error', (err) => {
-      // handle
-    });
-
     // process가 종료되면 pool에서 제거한다.
     process.on('exit', () => {
       this.pool.delete(liveSessionId);
