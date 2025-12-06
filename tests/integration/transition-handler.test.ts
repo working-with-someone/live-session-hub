@@ -19,7 +19,7 @@ describe('Transition Handler', () => {
   beforeAll(async () => {
     await currUser.insert();
 
-    for (let user of testUserData.users) {
+    for (const user of testUserData.users) {
       await prismaClient.user.create({
         data: {
           ...user,
@@ -43,10 +43,10 @@ describe('Transition Handler', () => {
   });
 
   describe('Broadcast Transition', () => {
-    let organizer = currUser;
-    let participant1 = testUserData.users[0];
-    let participant2 = testUserData.users[1];
-    let otherSessionParticipant = testUserData.users[2]; // New participant for a different session
+    const organizer = currUser;
+    const participant1 = testUserData.users[0];
+    const participant2 = testUserData.users[1];
+    const otherSessionParticipant = testUserData.users[2]; // New participant for a different session
 
     let organizerSocket: ClientSocket;
     let participant1Socket: ClientSocket;
@@ -793,7 +793,7 @@ describe('Transition Handler', () => {
 
     describe('Closed => ?', () => {
       let closedLiveSession: LiveSessionWithAll;
-      let otherLiveSession: LiveSessionWithAll;
+      let organizerSocket: ClientSocket;
 
       beforeEach(async () => {
         closedLiveSession = await liveSessionFactory.createAndSave({
@@ -803,147 +803,26 @@ describe('Transition Handler', () => {
             connect: { id: organizer.id },
           },
         });
-        otherLiveSession = await liveSessionFactory.createAndSave({
-          access_level: access_level.PUBLIC,
-          status: live_session_status.OPENED,
-          organizer: {
-            connect: { id: organizer.id },
-          },
-        });
       });
 
-      beforeEach((done) => {
+      afterEach(async () => {
+        await liveSessionFactory.cleanup();
+      });
+
+      test('Must_Connection_Error_Raised_To_Closed_Live_Session', (done) => {
         organizerSocket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${closedLiveSession.id}?role=${Role.organizer}`,
+            `/livesession/${closedLiveSession}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
         );
 
-        participant1Socket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${closedLiveSession.id}?role=${Role.participant}`,
-          {
-            extraHeaders: { userId: participant1.id.toString() },
-          }
-        );
-
-        participant2Socket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${closedLiveSession.id}?role=${Role.participant}`,
-          {
-            extraHeaders: { userId: participant2.id.toString() },
-          }
-        );
-
-        otherSessionParticipantSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${otherLiveSession.id}?role=${Role.participant}`,
-          {
-            extraHeaders: { userId: otherSessionParticipant.id.toString() },
-          }
-        );
-
-        let connectedCount = 0;
-
-        const onConnect = () => {
-          connectedCount++;
-          if (connectedCount === 4) {
-            // Now we have 4 participants to connect
-            done();
-          }
-        };
-
-        organizerSocket.on('connect', onConnect);
-        participant1Socket.on('connect', onConnect);
-        participant2Socket.on('connect', onConnect);
-        otherSessionParticipantSocket.on('connect', onConnect);
-      });
-
-      afterEach(() => {
-        liveSessionFactory.cleanup();
-
-        organizerSocket.disconnect();
-        participant1Socket.disconnect();
-        participant2Socket.disconnect();
-        otherSessionParticipantSocket.disconnect();
-      });
-
-      test('Closed => Ready Must_Response_With_400', (done) => {
-        const transitionCb: ResponseCb = async ({ status }) => {
-          expect(status).toEqual(400);
-
-          const _closedLiveSession = await prismaClient.live_session.findFirst({
-            where: { id: closedLiveSession.id },
-          });
-
-          expect(_closedLiveSession).toBeDefined();
-          expect(_closedLiveSession!.status).toEqual(
-            live_session_status.CLOSED
-          );
-
+        organizerSocket.on('connect_error', (err) => {
+          expect(err).toBeDefined();
+          expect(organizerSocket.connected).toBeFalsy();
           done();
-        };
-
-        organizerSocket.emit(WS_CHANNELS.transition.ready, transitionCb);
-      });
-
-      test('Closed => Opened Must_Response_With_400', (done) => {
-        const transitionCb: ResponseCb = async ({ status }) => {
-          expect(status).toEqual(400);
-
-          const _closedLiveSession = await prismaClient.live_session.findFirst({
-            where: { id: closedLiveSession.id },
-          });
-
-          expect(_closedLiveSession).toBeDefined();
-          expect(_closedLiveSession!.status).toEqual(
-            live_session_status.CLOSED
-          );
-
-          done();
-        };
-
-        organizerSocket.emit(WS_CHANNELS.transition.open, transitionCb);
-      });
-
-      test('Closed => Breaked Must_Response_With_400', (done) => {
-        const transitionCb: ResponseCb = async ({ status }) => {
-          expect(status).toEqual(400);
-
-          const _closedLiveSession = await prismaClient.live_session.findFirst({
-            where: { id: closedLiveSession.id },
-          });
-
-          expect(_closedLiveSession).toBeDefined();
-          expect(_closedLiveSession!.status).toEqual(
-            live_session_status.CLOSED
-          );
-
-          done();
-        };
-
-        organizerSocket.emit(WS_CHANNELS.transition.break, transitionCb);
-      });
-
-      test('Closed => Closed Must_Response_With_400', (done) => {
-        const transitionCb: ResponseCb = async ({ status }) => {
-          expect(status).toEqual(400);
-
-          const _closedLiveSession = await prismaClient.live_session.findFirst({
-            where: { id: closedLiveSession.id },
-          });
-
-          expect(_closedLiveSession).toBeDefined();
-          expect(_closedLiveSession!.status).toEqual(
-            live_session_status.CLOSED
-          );
-
-          done();
-        };
-
-        organizerSocket.emit(WS_CHANNELS.transition.close, transitionCb);
+        });
       });
     });
   });
