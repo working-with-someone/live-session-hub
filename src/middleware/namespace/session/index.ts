@@ -61,24 +61,25 @@ export const attachLiveSession = async (
   socket: Socket,
   next: (err?: ExtendedError) => void
 ) => {
-  const liveSessionId = socket.nsp.name.split('/').pop();
+  // attachLiveSessionRoleOrNotFound 후에 호출되는 middleware기 때문에, live session id가 정의됨은 검증되었기 때문에 assertion을 사용한다.
+  const liveSessionId = socket.nsp.name.split('/').pop()!;
 
-  const liveSessionData = await prismaClient.live_session.findUnique({
-    where: {
-      id: liveSessionId,
-    },
-  });
+  let liveSession;
+
+  if (socket.role === Role.participant) {
+    liveSession = await ParticipantLiveSession.create(liveSessionId);
+  } else if (socket.role === Role.organizer) {
+    liveSession = await OrganizerLiveSession.create(liveSessionId);
+  } else {
+    throw new Error();
+  }
 
   // live session이 closed상태라면, connection을 reject한다.
-  if (liveSessionData!.status == live_session_status.CLOSED) {
+  if (liveSession!.status == live_session_status.CLOSED) {
     next(new wwsError(httpStatusCode.GONE));
   }
 
-  if (socket.role === Role.participant) {
-    socket.liveSession = new ParticipantLiveSession(liveSessionData!);
-  } else if (socket.role === Role.organizer) {
-    socket.liveSession = new OrganizerLiveSession(liveSessionData!);
-  }
+  socket.liveSession = liveSession;
 
   return next();
 };

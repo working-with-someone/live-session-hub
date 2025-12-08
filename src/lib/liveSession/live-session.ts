@@ -1,7 +1,8 @@
-import { $Enums, live_session_status, Prisma } from '@prisma/client';
+import { $Enums, live_session_status } from '@prisma/client';
 import prismaClient from '../../database/clients/prisma';
+import { LiveSessionWithAll } from '../../@types/liveSession';
 
-export class LiveSession implements Prisma.live_sessionGetPayload<{}> {
+export class LiveSession implements LiveSessionWithAll {
   id: string;
   title: string;
   description: string | null;
@@ -15,8 +16,28 @@ export class LiveSession implements Prisma.live_sessionGetPayload<{}> {
   organizer_id: number;
   category_label: string;
   lastActivity: Date | null;
+  organizer: {
+    id: number;
+    created_at: Date;
+    updated_at: Date;
+    username: string;
+    encrypted_password: string;
+    email: string;
+    followers_count: number;
+    followings_count: number;
+  };
+  allow: { user_id: number; live_session_id: string }[];
+  break_time: { session_id: string; interval: number; duration: number } | null;
+  live_session_transition_log: {
+    id: number;
+    live_session_id: string;
+    from_state: $Enums.live_session_status;
+    to_state: $Enums.live_session_status;
+    transitioned_at: Date;
+  }[];
+  category: { label: string };
 
-  constructor(data: Prisma.live_sessionGetPayload<{}>) {
+  constructor(data: LiveSessionWithAll) {
     this.id = data.id;
     this.title = data.title;
     this.description = data.description;
@@ -30,18 +51,65 @@ export class LiveSession implements Prisma.live_sessionGetPayload<{}> {
     this.organizer_id = data.organizer_id;
     this.category_label = data.category_label;
     this.lastActivity = null;
+
+    this.organizer = data.organizer;
+    this.allow = data.allow;
+    this.break_time = data.break_time;
+    this.live_session_transition_log = data.live_session_transition_log;
+    this.category = data.category;
   }
 }
 
 export class ParticipantLiveSession extends LiveSession {
-  constructor(data: Prisma.live_sessionGetPayload<{}>) {
+  constructor(data: LiveSessionWithAll) {
     super(data);
+  }
+
+  static async create(liveSessionId: string): Promise<ParticipantLiveSession> {
+    const data = await prismaClient.live_session.findUnique({
+      where: { id: liveSessionId },
+      include: {
+        organizer: true,
+        allow: true,
+        break_time: true,
+        live_session_transition_log: true,
+        category: true,
+      },
+    });
+
+    if (!data) {
+      throw new Error(`Live session with id ${liveSessionId} not found`);
+    }
+
+    return new ParticipantLiveSession(data);
   }
 }
 
 export class OrganizerLiveSession extends LiveSession {
-  constructor(data: Prisma.live_sessionGetPayload<{}>) {
+  nextOpenTime?: Date;
+  nextBreakTime?: Date;
+
+  constructor(data: LiveSessionWithAll) {
     super(data);
+  }
+
+  static async create(liveSessionId: string): Promise<OrganizerLiveSession> {
+    const data = await prismaClient.live_session.findUnique({
+      where: { id: liveSessionId },
+      include: {
+        organizer: true,
+        allow: true,
+        break_time: true,
+        live_session_transition_log: true,
+        category: true,
+      },
+    });
+
+    if (!data) {
+      throw new Error(`Live session with id ${liveSessionId} not found`);
+    }
+
+    return new OrganizerLiveSession(data);
   }
 
   // ready, opened, breaked live session만이 touch가 가능하다.

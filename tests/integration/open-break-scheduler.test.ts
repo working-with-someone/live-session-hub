@@ -9,6 +9,10 @@ import {
 } from '../../src/lib/liveSession/schedular/open-break-schedular';
 import currUser from '../data/curr-user';
 import { httpServer } from '../../src/http';
+import liveSessionPool from '../../src/lib/liveSession/pool';
+import { OrganizerLiveSession } from '../../src/lib/liveSession/live-session';
+import { addMinutes } from 'date-fns';
+import { live_session_status } from '@prisma/client';
 
 describe('Open Break Scheduler', () => {
   beforeAll(async () => {
@@ -37,6 +41,14 @@ describe('Open Break Scheduler', () => {
 
   // live session은
   describe('Schedule Priority Queue', () => {
+    beforeEach(() => {});
+
+    afterEach(() => {
+      liveSessionPool.clear();
+      liveSessionBreakScheduler.clear();
+      liveSessionOpenScheduler.clear();
+    });
+
     test('Should_Be_Popped_In_Order_Of_Next_Open_Time', async () => {
       const liveSession1 = await liveSessionFactory.createAndSave({
         organizer: {
@@ -80,17 +92,29 @@ describe('Open Break Scheduler', () => {
         },
       });
 
-      const openCb = jest.fn();
-      const closeCb = jest.fn();
+      liveSessionPool.add(await OrganizerLiveSession.create(liveSession1.id));
+      liveSessionPool.add(await OrganizerLiveSession.create(liveSession2.id));
+      liveSessionPool.add(await OrganizerLiveSession.create(liveSession3.id));
 
-      liveSessionOpenScheduler.add(liveSession1, openCb, closeCb);
-      liveSessionOpenScheduler.add(liveSession3, openCb, closeCb);
-      liveSessionOpenScheduler.add(liveSession2, openCb, closeCb);
+      liveSessionOpenScheduler.add(
+        liveSession1.id,
+        addMinutes(new Date(), liveSession1.break_time!.duration)
+      );
+
+      liveSessionOpenScheduler.add(
+        liveSession3.id,
+        addMinutes(new Date(), liveSession3.break_time!.duration)
+      );
+
+      liveSessionOpenScheduler.add(
+        liveSession2.id,
+        addMinutes(new Date(), liveSession2.break_time!.duration)
+      );
 
       // 다음 open time이 먼저인 순서로 pop되어야한다.
-      expect(liveSessionOpenHeap.pop()?.id).toBe(liveSession1.id);
-      expect(liveSessionOpenHeap.pop()?.id).toBe(liveSession2.id);
-      expect(liveSessionOpenHeap.pop()?.id).toBe(liveSession3.id);
+      expect(liveSessionOpenHeap.pop()).toBe(liveSession1.id);
+      expect(liveSessionOpenHeap.pop()).toBe(liveSession2.id);
+      expect(liveSessionOpenHeap.pop()).toBe(liveSession3.id);
     });
 
     test('Should_Be_Popped_In_Order_Of_Next_Break_Time', async () => {
@@ -137,33 +161,37 @@ describe('Open Break Scheduler', () => {
         },
       });
 
-      const openCb = jest.fn();
-      const breakCb = jest.fn();
+      liveSessionPool.add(await OrganizerLiveSession.create(liveSession1.id));
+      liveSessionPool.add(await OrganizerLiveSession.create(liveSession2.id));
+      liveSessionPool.add(await OrganizerLiveSession.create(liveSession3.id));
 
-      liveSessionBreakScheduler.add(liveSession3, openCb, breakCb);
-      liveSessionBreakScheduler.add(liveSession1, openCb, breakCb);
-      liveSessionBreakScheduler.add(liveSession2, openCb, breakCb);
+      liveSessionBreakScheduler.add(
+        liveSession3.id,
+        addMinutes(new Date(), liveSession3.break_time!.interval)
+      );
+      liveSessionBreakScheduler.add(
+        liveSession1.id,
+        addMinutes(new Date(), liveSession1.break_time!.duration)
+      );
+      liveSessionBreakScheduler.add(
+        liveSession2.id,
+        addMinutes(new Date(), liveSession2.break_time!.duration)
+      );
 
-      expect(liveSessionBreakHeap.pop()?.id).toBe(liveSession1.id);
-      expect(liveSessionBreakHeap.pop()?.id).toBe(liveSession2.id);
-      expect(liveSessionBreakHeap.pop()?.id).toBe(liveSession3.id);
+      expect(liveSessionBreakHeap.pop()).toBe(liveSession1.id);
+      expect(liveSessionBreakHeap.pop()).toBe(liveSession2.id);
+      expect(liveSessionBreakHeap.pop()).toBe(liveSession3.id);
     });
   });
 
   describe('Schedule Task', () => {
-    test('Should_Call_Open_Callback_On_Next_Open_Time', (done) => {
-      // open callback이 call되어야하며, open heap에서 pop되고 break heap에 push되어야한다.
-      const openCb = () => {
-        expect(liveSessionOpenHeap).toHaveLength(0);
-        expect(liveSessionBreakHeap).toHaveLength(1);
-        done();
-      };
+    afterEach(() => {
+      liveSessionPool.clear();
+      liveSessionOpenScheduler.clear();
+      liveSessionBreakScheduler.clear();
+    });
 
-      // break callback은 call되어선 안된다.
-      const breakCb = () => {
-        done(new Error('break callback must not be called on open schedule'));
-      };
-
+    test('Live_Session_Open_Must_Be_Called_On_Next_Open_Time', (done) => {
       liveSessionFactory
         .createAndSave({
           organizer: {
@@ -171,31 +199,32 @@ describe('Open Break Scheduler', () => {
               id: currUser.id,
             },
           },
+          status: live_session_status.BREAKED,
           break_time: {
             create: {
-              duration: 0, // 1분 뒤에 open (테스트를 짧게)
+              duration: 0,
               interval: 0,
             },
           },
         })
         .then((liveSession) => {
-          liveSessionOpenScheduler.add(liveSession, openCb, breakCb);
+          const mockOpen = jest.fn().mockImplementation(() => {
+            done();
+            return new Promise(() => {});
+          });
+          const organizerLiveSession = new OrganizerLiveSession(liveSession);
+
+          organizerLiveSession.open = mockOpen;
+
+          liveSessionPool.add(organizerLiveSession);
+          liveSessionOpenScheduler.add(
+            liveSession.id,
+            addMinutes(Date.now(), liveSession.break_time!.duration)
+          );
         });
     });
 
-    test('Should_Call_Break_Callback_On_Next_Break_Time', (done) => {
-      // open callback은 call되어선 안된다.
-      const openCb = () => {
-        done(new Error('open callback must not be called on break schedule'));
-      };
-
-      // break callback이 call되어야하며, break heap에서 pop되고 open heap에 push되어야한다.
-      const breakCb = () => {
-        expect(liveSessionBreakHeap).toHaveLength(0);
-        expect(liveSessionOpenHeap).toHaveLength(1);
-        done();
-      };
-
+    test('Live_Session_Break_Must_Be_Called_On_Next_Break_Time', (done) => {
       liveSessionFactory
         .createAndSave({
           organizer: {
@@ -203,15 +232,28 @@ describe('Open Break Scheduler', () => {
               id: currUser.id,
             },
           },
+          status: live_session_status.OPENED,
           break_time: {
             create: {
-              duration: 0, // 1분 뒤에 open (테스트를 짧게)
+              duration: 0,
               interval: 0,
             },
           },
         })
         .then((liveSession) => {
-          liveSessionBreakScheduler.add(liveSession, openCb, breakCb);
+          const mockBreak = jest.fn().mockImplementation(() => {
+            done();
+            return new Promise(() => {});
+          });
+
+          const organizerLiveSession = new OrganizerLiveSession(liveSession);
+          organizerLiveSession.break = mockBreak;
+
+          liveSessionPool.add(organizerLiveSession);
+          liveSessionBreakScheduler.add(
+            liveSession.id,
+            addMinutes(Date.now(), liveSession.break_time!.interval)
+          );
         });
     });
   });

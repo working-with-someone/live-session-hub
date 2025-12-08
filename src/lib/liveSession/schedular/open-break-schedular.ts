@@ -3,20 +3,25 @@ import cron from 'node-cron';
 import { Heap } from 'heap-js';
 import LiveSessionScheduler from './scheduler';
 import { addMinutes, differenceInMilliseconds } from 'date-fns';
-import {
-  LiveSessionSchedule,
-  LiveSessionWithAll,
-} from '../../../@types/liveSession';
 
-export const liveSessionOpenHeap = new Heap<LiveSessionSchedule>(
-  (a: LiveSessionSchedule, b: LiveSessionSchedule) => {
-    return differenceInMilliseconds(a.nextOpenTime!, b.nextOpenTime!);
+import liveSessionPool from '../pool';
+
+export const liveSessionOpenHeap = new Heap<string>(
+  (id1: string, id2: string) => {
+    const a = liveSessionPool.get(id1);
+    const b = liveSessionPool.get(id2);
+
+    // break time이 설정되어있지 않은 live session은 open break scheduler에 add되지 않는다. 때문에 아래와같이 assertion을 사용한다.
+    return differenceInMilliseconds(a!.nextOpenTime!, b!.nextOpenTime!);
   }
 );
 
-export const liveSessionBreakHeap = new Heap<LiveSessionSchedule>(
-  (a: LiveSessionSchedule, b: LiveSessionSchedule) => {
-    return differenceInMilliseconds(a.nextBreakTime!, b.nextBreakTime!);
+export const liveSessionBreakHeap = new Heap<string>(
+  (id1: string, id2: string) => {
+    const a = liveSessionPool.get(id1);
+    const b = liveSessionPool.get(id2);
+
+    return differenceInMilliseconds(a!.nextBreakTime!, b!.nextBreakTime!);
   }
 );
 
@@ -25,30 +30,32 @@ class LiveSessionOpenScheduler extends LiveSessionScheduler {
     const config = liveSessionBreakScheduleConfig;
 
     const task = cron.createTask(config.intervalCronEx, () => {
-      if (!liveSessionOpenHeap.length) {
-        return;
-      }
+      while (liveSessionOpenHeap.length > 0) {
+        const peekedId = liveSessionOpenHeap.peek();
 
-      let liveSessionOpenSchedule = liveSessionOpenHeap.peek();
+        if (!peekedId) break;
 
-      while (
-        liveSessionOpenSchedule &&
-        liveSessionOpenSchedule.nextOpenTime! <= new Date()
-      ) {
+        const liveSession = liveSessionPool.get(peekedId);
+
+        if (!liveSession) {
+          liveSessionOpenHeap.pop();
+          continue;
+        }
+
+        if (liveSession.nextOpenTime! > new Date()) {
+          break;
+        }
+
         liveSessionOpenHeap.pop();
 
-        const nextBreakTime = addMinutes(
-          liveSessionOpenSchedule.nextOpenTime!,
-          liveSessionOpenSchedule.break_time!.interval
-        );
+        liveSession.open().then(() => {
+          const nextBreakTime = addMinutes(
+            liveSession.nextOpenTime!,
+            liveSession.break_time!.interval
+          );
 
-        liveSessionOpenSchedule.nextBreakTime = nextBreakTime;
-
-        liveSessionBreakHeap.push(liveSessionOpenSchedule);
-
-        liveSessionOpenSchedule.openCb();
-
-        liveSessionOpenSchedule = liveSessionOpenHeap.peek();
+          liveSessionBreakScheduler.add(liveSession.id, nextBreakTime);
+        });
       }
     });
 
@@ -56,24 +63,19 @@ class LiveSessionOpenScheduler extends LiveSessionScheduler {
   }
 
   // 현재로부터 live session의 break time duration뒤에 break되는 schedule을 추가한다.
-  add(
-    liveSession: LiveSessionWithAll,
-    openCb: () => void,
-    breakCb: () => void
-  ) {
-    if (!liveSession.break_time) {
-      throw new Error('Live session must have break_time configured');
+  add(liveSessionId: string, nextOpenTime: Date) {
+    const liveSession = liveSessionPool.get(liveSessionId);
+
+    if (!liveSession) {
+      throw new Error('live session must be exist in live session pool');
     }
 
-    const liveSessionSchedule: LiveSessionSchedule = {
-      ...liveSession,
-      openCb,
-      nextOpenTime: addMinutes(new Date(), liveSession.break_time.duration),
-      breakCb,
-      nextBreakTime: undefined,
-    };
+    if (!liveSession.break_time) {
+      throw new Error('live session does not have break time information');
+    }
 
-    liveSessionOpenHeap.push(liveSessionSchedule);
+    liveSession.nextOpenTime = nextOpenTime;
+    liveSessionOpenHeap.push(liveSessionId);
   }
 
   clear() {
@@ -86,53 +88,52 @@ class LiveSessionBreakScheduler extends LiveSessionScheduler {
     const config = liveSessionBreakScheduleConfig;
 
     const task = cron.createTask(config.intervalCronEx, () => {
-      if (!liveSessionBreakHeap.length) {
-        return;
-      }
+      while (liveSessionBreakHeap.length > 0) {
+        const liveSessionId = liveSessionBreakHeap.peek();
 
-      let liveSessionBreakSchedule = liveSessionBreakHeap.peek();
+        if (!liveSessionId) break;
 
-      while (
-        liveSessionBreakSchedule &&
-        liveSessionBreakSchedule.nextBreakTime! <= new Date()
-      ) {
+        const liveSession = liveSessionPool.get(liveSessionId);
+
+        if (!liveSession) {
+          liveSessionBreakHeap.pop();
+          continue;
+        }
+
+        // 아직 브레이크 시간이 되지 않았다면 루프 종료
+        if (liveSession.nextBreakTime! > new Date()) {
+          break;
+        }
         liveSessionBreakHeap.pop();
 
-        liveSessionBreakSchedule.nextOpenTime = addMinutes(
-          liveSessionBreakSchedule.nextBreakTime!,
-          liveSessionBreakSchedule.break_time!.duration
+        const nextOpenTime = addMinutes(
+          liveSession.nextBreakTime!,
+          liveSession.break_time!.duration
         );
 
-        liveSessionOpenHeap.push(liveSessionBreakSchedule);
-
-        liveSessionBreakSchedule.breakCb();
-
-        liveSessionBreakSchedule = liveSessionBreakHeap.peek();
+        liveSession.break().then(() => {
+          liveSessionOpenScheduler.add(liveSession.id, nextOpenTime);
+        });
       }
     });
 
     super(task);
   }
 
-  // 현재로부터 live session의 break time interval뒤에 break되는 schedule을 추가한다.
-  add(
-    liveSession: LiveSessionWithAll,
-    openCb: () => void,
-    breakCb: () => void
-  ) {
-    if (!liveSession.break_time) {
-      throw new Error('Live session must have break_time configured');
+  // 현재로부터 live session의 break time interval 뒤에 break되는 schedule을 추가한다.
+  add(liveSessionId: string, nextBreakTime: Date) {
+    const liveSession = liveSessionPool.get(liveSessionId);
+
+    if (!liveSession) {
+      throw new Error('live session must be exist in live session pool');
     }
 
-    const liveSessionSchedule: LiveSessionSchedule = {
-      ...liveSession,
-      openCb,
-      nextOpenTime: undefined,
-      breakCb,
-      nextBreakTime: addMinutes(new Date(), liveSession.break_time.interval),
-    };
+    if (!liveSession.break_time) {
+      throw new Error('live session does not have break time information');
+    }
 
-    liveSessionBreakHeap.push(liveSessionSchedule);
+    liveSession.nextBreakTime = nextBreakTime;
+    liveSessionBreakHeap.push(liveSessionId);
   }
 
   clear() {
