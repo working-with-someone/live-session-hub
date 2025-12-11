@@ -1,4 +1,5 @@
 import { OrganizerLiveSession } from './live-session';
+import { liveSessionBreakScheduler } from './schedular/open-break-schedular';
 
 class LiveSessionPool extends Map<string, OrganizerLiveSession> {
   constructor() {
@@ -11,6 +12,10 @@ class LiveSessionPool extends Map<string, OrganizerLiveSession> {
     }
 
     this.set(liveSession.id, liveSession);
+
+    if (liveSession.break_time) {
+      liveSessionBreakScheduler.add(liveSession.id);
+    }
   }
 
   remove(liveSessionId: string) {

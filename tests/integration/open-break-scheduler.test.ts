@@ -263,4 +263,120 @@ describe('Open Break Scheduler', () => {
         });
     });
   });
+
+  describe('Media Stream Push With Break Time Information', () => {
+    const organizer = currUser;
+    let organizerSocket: ClientSocket;
+
+    let readyLiveSession: LiveSessionWithAll;
+
+    beforeEach(async () => {
+      readyLiveSession = await liveSessionFactory.createAndSave({
+        access_level: access_level.PUBLIC,
+        status: live_session_status.READY,
+        organizer: {
+          connect: { id: organizer.id },
+        },
+        break_time: {
+          create: {
+            interval: 50,
+            duration: 10,
+          },
+        },
+      });
+    });
+
+    beforeEach((done) => {
+      organizerSocket = ioc(
+        process.env.SERVER_URL +
+          `/livesession/${readyLiveSession.id}?role=${Role.organizer}`,
+        {
+          extraHeaders: { userId: organizer.id.toString() },
+        }
+      );
+
+      organizerSocket.on('connect', done);
+    });
+
+    afterEach(() => {
+      if (organizerSocket.connected) {
+        organizerSocket.disconnect();
+      }
+    });
+
+    afterAll(async () => {
+      liveSessionFactory.cleanup();
+    });
+
+    test('Live_Session_Must_Be_Scheduled_When_Media_Pushed', (done) => {
+      const mediaBuffer = fs.readFileSync('tests/video/video.webm');
+
+      const cb = jest.fn();
+
+      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
+
+      setTimeout(() => {
+        expect(liveSessionBreakHeap.pop()).toEqual(readyLiveSession.id);
+        done();
+      }, 1000);
+    });
+  });
+
+  describe('Media Stream Push Without Break Time Information', () => {
+    const organizer = currUser;
+    let organizerSocket: ClientSocket;
+
+    let readyLiveSession: LiveSessionWithAll;
+
+    beforeEach(async () => {
+      readyLiveSession = await liveSessionFactory.createAndSave({
+        access_level: access_level.PUBLIC,
+        status: live_session_status.READY,
+        organizer: {
+          connect: { id: organizer.id },
+        },
+        break_time: {
+          create: {
+            interval: 50,
+            duration: 10,
+          },
+        },
+      });
+    });
+
+    beforeEach((done) => {
+      organizerSocket = ioc(
+        process.env.SERVER_URL +
+          `/livesession/${readyLiveSession.id}?role=${Role.organizer}`,
+        {
+          extraHeaders: { userId: organizer.id.toString() },
+        }
+      );
+
+      organizerSocket.on('connect', done);
+    });
+
+    afterEach(() => {
+      if (organizerSocket.connected) {
+        organizerSocket.disconnect();
+      }
+    });
+
+    afterAll(async () => {
+      liveSessionFactory.cleanup();
+    });
+
+    test('Live_Session_Without_Break_Time_Information_Must_Not_Be_Scheduled_When_Media_Pushed', (done) => {
+      const mediaBuffer = fs.readFileSync('tests/video/video.webm');
+
+      const cb = jest.fn();
+
+      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
+
+      setTimeout(() => {
+        expect(liveSessionBreakHeap.pop()).toEqual(readyLiveSession.id);
+        done();
+      }, 1000);
+    });
+  });
 });
