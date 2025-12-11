@@ -11,8 +11,13 @@ import currUser from '../data/curr-user';
 import { httpServer } from '../../src/http';
 import liveSessionPool from '../../src/lib/liveSession/pool';
 import { OrganizerLiveSession } from '../../src/lib/liveSession/live-session';
-import { addMinutes } from 'date-fns';
-import { live_session_status } from '@prisma/client';
+import { access_level, live_session_status } from '@prisma/client';
+import { Socket as ClientSocket } from 'socket.io-client';
+import { LiveSessionWithAll } from '../../src/@types/liveSession';
+import { Role } from '../../src/enums/session';
+import ioc from 'socket.io-client';
+import WS_CHANNELS from '../../src/constants/channels';
+import fs from 'node:fs';
 
 describe('Open Break Scheduler', () => {
   beforeAll(async () => {
@@ -56,6 +61,7 @@ describe('Open Break Scheduler', () => {
             id: currUser.id,
           },
         },
+        status: live_session_status.BREAKED,
         break_time: {
           create: {
             duration: 10,
@@ -70,6 +76,7 @@ describe('Open Break Scheduler', () => {
             id: currUser.id,
           },
         },
+        status: live_session_status.BREAKED,
         break_time: {
           create: {
             duration: 20,
@@ -84,6 +91,7 @@ describe('Open Break Scheduler', () => {
             id: currUser.id,
           },
         },
+        status: live_session_status.BREAKED,
         break_time: {
           create: {
             duration: 30,
@@ -92,24 +100,24 @@ describe('Open Break Scheduler', () => {
         },
       });
 
-      liveSessionPool.add(await OrganizerLiveSession.create(liveSession1.id));
-      liveSessionPool.add(await OrganizerLiveSession.create(liveSession2.id));
-      liveSessionPool.add(await OrganizerLiveSession.create(liveSession3.id));
-
-      liveSessionOpenScheduler.add(
-        liveSession1.id,
-        addMinutes(new Date(), liveSession1.break_time!.duration)
+      // pool add를 통해 live session open scheduler에 add된다.
+      const organizerLiveSession1 = await OrganizerLiveSession.create(
+        liveSession1.id
+      );
+      const organizerLiveSession2 = await OrganizerLiveSession.create(
+        liveSession2.id
+      );
+      const organizerLiveSession3 = await OrganizerLiveSession.create(
+        liveSession3.id
       );
 
-      liveSessionOpenScheduler.add(
-        liveSession3.id,
-        addMinutes(new Date(), liveSession3.break_time!.duration)
-      );
+      liveSessionPool.set(organizerLiveSession1.id, organizerLiveSession1);
+      liveSessionPool.set(organizerLiveSession2.id, organizerLiveSession2);
+      liveSessionPool.set(organizerLiveSession3.id, organizerLiveSession3);
 
-      liveSessionOpenScheduler.add(
-        liveSession2.id,
-        addMinutes(new Date(), liveSession2.break_time!.duration)
-      );
+      liveSessionOpenScheduler.add(organizerLiveSession1.id);
+      liveSessionOpenScheduler.add(organizerLiveSession2.id);
+      liveSessionOpenScheduler.add(organizerLiveSession3.id);
 
       // 다음 open time이 먼저인 순서로 pop되어야한다.
       expect(liveSessionOpenHeap.pop()).toBe(liveSession1.id);
@@ -125,6 +133,7 @@ describe('Open Break Scheduler', () => {
             id: currUser.id,
           },
         },
+        status: live_session_status.OPENED,
         break_time: {
           create: {
             duration: 10,
@@ -139,6 +148,7 @@ describe('Open Break Scheduler', () => {
             id: currUser.id,
           },
         },
+        status: live_session_status.OPENED,
         break_time: {
           create: {
             duration: 20,
@@ -153,6 +163,7 @@ describe('Open Break Scheduler', () => {
             id: currUser.id,
           },
         },
+        status: live_session_status.OPENED,
         break_time: {
           create: {
             duration: 30,
@@ -161,22 +172,23 @@ describe('Open Break Scheduler', () => {
         },
       });
 
-      liveSessionPool.add(await OrganizerLiveSession.create(liveSession1.id));
-      liveSessionPool.add(await OrganizerLiveSession.create(liveSession2.id));
-      liveSessionPool.add(await OrganizerLiveSession.create(liveSession3.id));
+      const organizerLiveSession1 = await OrganizerLiveSession.create(
+        liveSession1.id
+      );
+      const organizerLiveSession2 = await OrganizerLiveSession.create(
+        liveSession2.id
+      );
+      const organizerLiveSession3 = await OrganizerLiveSession.create(
+        liveSession3.id
+      );
 
-      liveSessionBreakScheduler.add(
-        liveSession3.id,
-        addMinutes(new Date(), liveSession3.break_time!.interval)
-      );
-      liveSessionBreakScheduler.add(
-        liveSession1.id,
-        addMinutes(new Date(), liveSession1.break_time!.duration)
-      );
-      liveSessionBreakScheduler.add(
-        liveSession2.id,
-        addMinutes(new Date(), liveSession2.break_time!.duration)
-      );
+      liveSessionPool.set(organizerLiveSession1.id, organizerLiveSession1);
+      liveSessionPool.set(organizerLiveSession2.id, organizerLiveSession2);
+      liveSessionPool.set(organizerLiveSession3.id, organizerLiveSession3);
+
+      liveSessionBreakScheduler.add(liveSession3.id);
+      liveSessionBreakScheduler.add(liveSession1.id);
+      liveSessionBreakScheduler.add(liveSession2.id);
 
       expect(liveSessionBreakHeap.pop()).toBe(liveSession1.id);
       expect(liveSessionBreakHeap.pop()).toBe(liveSession2.id);
@@ -203,7 +215,7 @@ describe('Open Break Scheduler', () => {
           break_time: {
             create: {
               duration: 0,
-              interval: 0,
+              interval: 30,
             },
           },
         })
@@ -216,11 +228,8 @@ describe('Open Break Scheduler', () => {
 
           organizerLiveSession.open = mockOpen;
 
-          liveSessionPool.add(organizerLiveSession);
-          liveSessionOpenScheduler.add(
-            liveSession.id,
-            addMinutes(Date.now(), liveSession.break_time!.duration)
-          );
+          liveSessionPool.set(organizerLiveSession.id, organizerLiveSession);
+          liveSessionOpenScheduler.add(liveSession.id);
         });
     });
 
@@ -235,7 +244,7 @@ describe('Open Break Scheduler', () => {
           status: live_session_status.OPENED,
           break_time: {
             create: {
-              duration: 0,
+              duration: 30,
               interval: 0,
             },
           },
@@ -249,11 +258,8 @@ describe('Open Break Scheduler', () => {
           const organizerLiveSession = new OrganizerLiveSession(liveSession);
           organizerLiveSession.break = mockBreak;
 
-          liveSessionPool.add(organizerLiveSession);
-          liveSessionBreakScheduler.add(
-            liveSession.id,
-            addMinutes(Date.now(), liveSession.break_time!.interval)
-          );
+          liveSessionPool.set(organizerLiveSession.id, organizerLiveSession);
+          liveSessionBreakScheduler.add(liveSession.id);
         });
     });
   });

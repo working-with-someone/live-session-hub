@@ -49,12 +49,7 @@ class LiveSessionOpenScheduler extends LiveSessionScheduler {
         liveSessionOpenHeap.pop();
 
         liveSession.open().then(() => {
-          const nextBreakTime = addMinutes(
-            liveSession.nextOpenTime!,
-            liveSession.break_time!.interval
-          );
-
-          liveSessionBreakScheduler.add(liveSession.id, nextBreakTime);
+          liveSessionBreakScheduler.add(liveSession.id);
         });
       }
     });
@@ -63,7 +58,7 @@ class LiveSessionOpenScheduler extends LiveSessionScheduler {
   }
 
   // 현재로부터 live session의 break time duration뒤에 break되는 schedule을 추가한다.
-  add(liveSessionId: string, nextOpenTime: Date) {
+  add(liveSessionId: string) {
     const liveSession = liveSessionPool.get(liveSessionId);
 
     if (!liveSession) {
@@ -73,6 +68,11 @@ class LiveSessionOpenScheduler extends LiveSessionScheduler {
     if (!liveSession.break_time) {
       throw new Error('live session does not have break time information');
     }
+
+    const nextOpenTime = addMinutes(
+      Date.now(),
+      liveSession.break_time.duration
+    );
 
     liveSession.nextOpenTime = nextOpenTime;
     liveSessionOpenHeap.push(liveSessionId);
@@ -106,13 +106,8 @@ class LiveSessionBreakScheduler extends LiveSessionScheduler {
         }
         liveSessionBreakHeap.pop();
 
-        const nextOpenTime = addMinutes(
-          liveSession.nextBreakTime!,
-          liveSession.break_time!.duration
-        );
-
         liveSession.break().then(() => {
-          liveSessionOpenScheduler.add(liveSession.id, nextOpenTime);
+          liveSessionOpenScheduler.add(liveSession.id);
         });
       }
     });
@@ -121,7 +116,7 @@ class LiveSessionBreakScheduler extends LiveSessionScheduler {
   }
 
   // 현재로부터 live session의 break time interval 뒤에 break되는 schedule을 추가한다.
-  add(liveSessionId: string, nextBreakTime: Date) {
+  add(liveSessionId: string) {
     const liveSession = liveSessionPool.get(liveSessionId);
 
     if (!liveSession) {
@@ -131,6 +126,11 @@ class LiveSessionBreakScheduler extends LiveSessionScheduler {
     if (!liveSession.break_time) {
       throw new Error('live session does not have break time information');
     }
+
+    const nextBreakTime = addMinutes(
+      Date.now(),
+      liveSession.break_time.interval
+    );
 
     liveSession.nextBreakTime = nextBreakTime;
     liveSessionBreakHeap.push(liveSessionId);
