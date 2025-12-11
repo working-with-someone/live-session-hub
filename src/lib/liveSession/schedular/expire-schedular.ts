@@ -26,4 +26,4 @@ class LiveSessionExpireSchedular extends LiveSessionScheduler {
   }
 }
 
-export const liveSessionExpireSchedular = new LiveSessionExpireSchedular();
+export const liveSessionExpireScheduler = new LiveSessionExpireSchedular();
