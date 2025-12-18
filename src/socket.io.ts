@@ -13,8 +13,19 @@ import {
   OrganizerLiveSession,
 } from './lib/liveSession/live-session';
 
-export function attachSocketIoServer(httpServer: Server) {
-  const socketIoServer = new SocketIoServer(httpServer, {
+// Export 타입 정의
+export type { SocketIoServer };
+export type { socketWithLiveSession };
+
+// socketIoServer를 전역 변수로 선언
+let socketIoServer: SocketIoServer | null = null;
+/**
+ * Socket.IO 서버를 초기화합니다.
+ * @param httpServer HTTP 서버 인스턴스
+ * @returns 초기화된 Socket.IO 서버 인스턴스
+ */
+export function initSocketIoServer(httpServer: Server): SocketIoServer {
+  socketIoServer = new SocketIoServer(httpServer, {
     cors: {
       origin: process.env.WWS_CLIENT_APP_ORIGIN,
       credentials: true,
@@ -29,7 +40,6 @@ export function attachSocketIoServer(httpServer: Server) {
 
   // connection과정에서 한번만 실행된다.
   liveSessionNsp.use(authMiddleware.attachUserOrUnauthorized);
-
   liveSessionNsp.use(liveSessionMiddleware.attachLiveSessionRoleOrNotFound);
   liveSessionNsp.use(liveSessionMiddleware.attachLiveSession);
   liveSessionNsp.use(liveSessionMiddleware.attachFfmpegProcessToOrganizer);
@@ -52,4 +62,14 @@ export function attachSocketIoServer(httpServer: Server) {
       }
     }
   );
+
+  return socketIoServer;
+}
+
+export function getSocketIoServer(): SocketIoServer {
+  if (!socketIoServer) {
+    throw new Error('socket.io server does not initialized');
+  }
+
+  return socketIoServer;
 }

@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { attachSocketIoServer } from './socket.io';
+import { initSocketIoServer } from './socket.io';
 
 import prismaClient from './database/clients/prisma';
 import redisClient from './database/clients/redis';
@@ -14,7 +14,7 @@ export function run() {
       `Live Session Hub Server is listening on port ${process.env.PORT} 🔥`
     );
 
-    attachSocketIoServer(httpServer);
+    initSocketIoServer(httpServer);
 
     liveSessionExpireScheduler.startSchedule();
     prismaClient.$connect();
