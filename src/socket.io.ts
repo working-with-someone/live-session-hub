@@ -1,4 +1,8 @@
-import { Server as SocketIoServer, socketWithLiveSession } from 'socket.io';
+import {
+  Namespace,
+  Server as SocketIoServer,
+  socketWithLiveSession,
+} from 'socket.io';
 import authMiddleware from './middleware/namespace/auth';
 import session from 'express-session';
 import sessionConfig from './config/session.config';
@@ -72,4 +76,12 @@ export function getSocketIoServer(): SocketIoServer {
   }
 
   return socketIoServer;
+}
+
+export function getNameSpace(str: string): Namespace {
+  const socketIoServer = getSocketIoServer();
+
+  const namespace = socketIoServer.of(`/livesession/${str}`);
+
+  return namespace;
 }

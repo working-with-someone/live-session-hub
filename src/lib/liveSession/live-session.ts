@@ -1,6 +1,9 @@
 import { $Enums, live_session_status } from '@prisma/client';
 import prismaClient from '../../database/clients/prisma';
 import { LiveSessionWithAll } from '../../@types/liveSession';
+import { Namespace } from 'socket.io';
+import WS_CHANNELS from '../../constants/channels';
+import { getNameSpace, getSocketIoServer } from '../../socket.io';
 
 export class LiveSession implements LiveSessionWithAll {
   id: string;
@@ -88,9 +91,11 @@ export class ParticipantLiveSession extends LiveSession {
 export class OrganizerLiveSession extends LiveSession {
   nextOpenTime?: Date;
   nextBreakTime?: Date;
+  nsp: Namespace;
 
   constructor(data: LiveSessionWithAll) {
     super(data);
+    this.nsp = getNameSpace(data.id);
   }
 
   static async create(liveSessionId: string): Promise<OrganizerLiveSession> {
@@ -128,40 +133,47 @@ export class OrganizerLiveSession extends LiveSession {
 
   async ready() {
     if (!this.isReadyable()) {
-      throw new Error('Live session cannot be ready from current state.');
+      throw new Error(`Live session cannot be ready from ${this.status} `);
     }
   }
 
   async open() {
     if (!this.isOpenable()) {
-      throw new Error('Live session cannot be opened from current state.');
+      throw new Error(`Live session cannot be opened from ${this.status} `);
     }
 
     await prismaClient.live_session.update({
       where: { id: this.id },
       data: { status: $Enums.live_session_status.OPENED },
     });
+
+    this.nsp.emit(WS_CHANNELS.transition.broadCast.open);
   }
 
   async break() {
     if (!this.isBreakable()) {
-      throw new Error('Live session cannot be breaked from current state.');
+      throw new Error(`Live session cannot be breaked from ${this.status} `);
     }
 
     await prismaClient.live_session.update({
       where: { id: this.id },
       data: { status: $Enums.live_session_status.BREAKED },
     });
+
+    this.nsp.emit(WS_CHANNELS.transition.broadCast.break);
   }
 
   async close() {
     if (!this.isCloseable()) {
-      throw new Error('Live session cannot be closed from current state.');
+      throw new Error(`Live session cannot be closed from ${this.status} `);
     }
+
     await prismaClient.live_session.update({
       where: { id: this.id },
       data: { status: $Enums.live_session_status.CLOSED },
     });
+
+    this.nsp.emit(WS_CHANNELS.transition.broadCast.close);
   }
 
   // x => ready

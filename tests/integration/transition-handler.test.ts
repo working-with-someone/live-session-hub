@@ -764,6 +764,7 @@ describe('Transition Handler', () => {
             expect(_breakedLiveSession!.status).toEqual(
               live_session_status.CLOSED
             );
+
             done();
           }
         };

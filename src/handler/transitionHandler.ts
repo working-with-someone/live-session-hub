@@ -12,7 +12,6 @@ const registerTransitionHandler = (
     socket.liveSession
       .ready()
       .then(() => {
-        socket.nsp.emit(WS_CHANNELS.transition.broadCast.ready);
         cb({ status: httpStatusCode.OK });
       })
       .catch((err) => {
@@ -25,7 +24,6 @@ const registerTransitionHandler = (
     socket.liveSession
       .open()
       .then(() => {
-        socket.nsp.emit(WS_CHANNELS.transition.broadCast.open);
         cb({ status: httpStatusCode.OK });
       })
       .catch((err) => {
@@ -37,7 +35,6 @@ const registerTransitionHandler = (
     socket.liveSession
       .break()
       .then(() => {
-        socket.nsp.emit(WS_CHANNELS.transition.broadCast.break);
         cb({ status: httpStatusCode.OK });
       })
       .catch((err) => {
@@ -49,7 +46,6 @@ const registerTransitionHandler = (
     socket.liveSession
       .close()
       .then(() => {
-        socket.nsp.emit(WS_CHANNELS.transition.broadCast.close);
         cb({ status: httpStatusCode.OK });
       })
       .catch((err) => {
