@@ -9,7 +9,7 @@ const registerStreamHandler = (
   nsp: Namespace,
   socket: socketWithLiveSession<OrganizerLiveSession>
 ) => {
-  const pushData = (fileBuffer: Buffer, cb: ResponseCb) => {
+  const pushData = async (fileBuffer: Buffer, cb: ResponseCb) => {
     if (socket.liveSession.status === live_session_status.CLOSED) {
       return cb({
         status: 400,
@@ -17,14 +17,14 @@ const registerStreamHandler = (
       });
     }
 
-    // media push가 이루어지고있다면, monitoring되어야한다.
+    // media push가 이루어지고있다면, live session pool에 올라가야한다.
     if (!liveSessionPool.has(socket.liveSession.id)) {
-      liveSessionPool.add(socket.liveSession);
+      await liveSessionPool.add(socket.liveSession);
     }
 
     socket.ffmpegProcess.stdin.write(Buffer.from(fileBuffer));
 
-    socket.liveSession.touch();
+    await socket.liveSession.touch();
 
     cb({
       status: 200,

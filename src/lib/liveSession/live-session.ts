@@ -131,6 +131,16 @@ export class OrganizerLiveSession extends LiveSession {
     this.lastActivity = new Date();
   }
 
+  // started_at을 기록한다.
+  async start() {
+    await prismaClient.live_session.update({
+      where: { id: this.id },
+      data: {
+        started_at: new Date(),
+      },
+    });
+  }
+
   async ready() {
     if (!this.isReadyable()) {
       throw new Error(`Live session cannot be ready from ${this.status} `);
@@ -174,6 +184,13 @@ export class OrganizerLiveSession extends LiveSession {
     });
 
     this.nsp.emit(WS_CHANNELS.transition.broadCast.close);
+  }
+
+  isActivate() {
+    return (
+      this.status === live_session_status.OPENED ||
+      this.status === live_session_status.BREAKED
+    );
   }
 
   // x => ready

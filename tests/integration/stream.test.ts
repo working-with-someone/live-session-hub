@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import WS_CHANNELS from '../../src/constants/channels';
 import { wwsError } from '../../src/error/wwsError';
 import httpStatusCode from 'http-status-codes';
+import liveSessionPool from '../../src/lib/liveSession/pool';
 
 describe('Stream', () => {
   beforeAll(async () => {
@@ -22,6 +23,7 @@ describe('Stream', () => {
   });
 
   afterAll(async () => {
+    await liveSessionPool.clear();
     await currUser.delete();
   });
 
@@ -30,7 +32,7 @@ describe('Stream', () => {
     let organizerSocket: ClientSocket;
     let openedLiveSession: LiveSessionWithAll;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
       openedLiveSession = await liveSessionFactory.createAndSave({
         access_level: access_level.PUBLIC,
         status: live_session_status.OPENED,
@@ -54,16 +56,16 @@ describe('Stream', () => {
       });
     });
 
+    afterEach(async () => {
+      await liveSessionFactory.cleanup();
+    });
+
     afterEach((done) => {
       if (organizerSocket.connected) {
         organizerSocket.disconnect();
 
         done();
       }
-    });
-
-    afterAll(async () => {
-      liveSessionFactory.cleanup();
     });
 
     // 여기서 200은 ffmpeg process에 data를 입력하는 것이 성공했음을 의미하는 200이다. 이후 ffmpeg가 성공적으로 수행되었는지는 판단할 수 없다.
@@ -122,7 +124,7 @@ describe('Stream', () => {
     let organizerSocket: ClientSocket;
     let readyLiveSession: LiveSessionWithAll;
 
-    beforeAll(async () => {
+    beforeEach(async () => {
       readyLiveSession = await liveSessionFactory.createAndSave({
         access_level: access_level.PUBLIC,
         status: live_session_status.READY,
@@ -154,7 +156,7 @@ describe('Stream', () => {
       }
     });
 
-    afterAll(async () => {
+    afterEach(async () => {
       liveSessionFactory.cleanup();
     });
 
@@ -187,6 +189,20 @@ describe('Stream', () => {
               done(err);
             });
         }, 1000);
+      });
+
+      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
+    });
+
+    test('Started_At_Must_Be_Updated_When_First_Media_Pushed', async () => {
+      const mediaBuffer = fs.readFileSync('tests/video/video.webm');
+
+      const cb = jest.fn(async (res) => {
+        const liveSession = await prismaClient.live_session.findFirst({
+          where: { id: readyLiveSession.id },
+        });
+
+        expect(liveSession?.started_at).toBeDefined();
       });
 
       organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
