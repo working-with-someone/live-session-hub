@@ -12,7 +12,10 @@ import httpStatusCode from 'http-status-codes';
 import liveSessionFactory from '../factories/live-session-factory';
 import { Role } from '../../src/enums/session';
 import { ResponseCb } from '../../src/@types/augmentation/socket/response';
-import { LiveSessionWithAll } from '../../src/@types/liveSession';
+import {
+  LiveSessionField,
+  LiveSessionWithAll,
+} from '../../src/@types/liveSession';
 import currUser from '../data/curr-user';
 
 describe('Transition Handler', () => {
@@ -205,24 +208,15 @@ describe('Transition Handler', () => {
         };
 
         // Set up broadcast listeners for all participants
-        organizerSocket.on(
-          WS_CHANNELS.transition.broadCast.open,
-          checkComplete
-        );
+        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
 
-        participant1Socket.on(
-          WS_CHANNELS.transition.broadCast.open,
-          checkComplete
-        );
+        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
-        participant2Socket.on(
-          WS_CHANNELS.transition.broadCast.open,
-          checkComplete
-        );
+        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
         // Other live session participant should NOT receive broadcast
         otherSessionParticipantSocket.on(
-          WS_CHANNELS.transition.broadCast.open,
+          WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
 
@@ -303,24 +297,15 @@ describe('Transition Handler', () => {
         };
 
         // Set up broadcast listeners for all participants
-        organizerSocket.on(
-          WS_CHANNELS.transition.broadCast.close,
-          checkComplete
-        );
+        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
 
-        participant1Socket.on(
-          WS_CHANNELS.transition.broadCast.close,
-          checkComplete
-        );
+        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
-        participant2Socket.on(
-          WS_CHANNELS.transition.broadCast.close,
-          checkComplete
-        );
+        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
         // Other live session participant should NOT receive broadcast
         otherSessionParticipantSocket.on(
-          WS_CHANNELS.transition.broadCast.close,
+          WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
 
@@ -452,8 +437,12 @@ describe('Transition Handler', () => {
         const expectedReceiveCount = 3; // Only 3 participants should receive the message
         const transitionCb = jest.fn();
         const otherLiveSessionParticipantTransitionListener = jest.fn();
-        const checkComplete = async () => {
-          receivedCount++;
+
+        const checkComplete = async (field: LiveSessionField) => {
+          if (field == 'status') {
+            receivedCount++;
+          }
+
           if (receivedCount === expectedReceiveCount) {
             expect(transitionCb).toHaveBeenCalled();
             expect(transitionCb.mock.calls[0][0].status).toEqual(
@@ -474,21 +463,13 @@ describe('Transition Handler', () => {
             done();
           }
         };
+
         // Set up broadcast listeners for all participants
-        organizerSocket.on(
-          WS_CHANNELS.transition.broadCast.break,
-          checkComplete
-        );
-        participant1Socket.on(
-          WS_CHANNELS.transition.broadCast.break,
-          checkComplete
-        );
-        participant2Socket.on(
-          WS_CHANNELS.transition.broadCast.break,
-          checkComplete
-        );
+        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
+        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
+        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
         otherSessionParticipantSocket.on(
-          WS_CHANNELS.transition.broadCast.break,
+          WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
         // Emit the transition event
@@ -523,20 +504,11 @@ describe('Transition Handler', () => {
           }
         };
 
-        organizerSocket.on(
-          WS_CHANNELS.transition.broadCast.close,
-          checkComplete
-        );
-        participant1Socket.on(
-          WS_CHANNELS.transition.broadCast.close,
-          checkComplete
-        );
-        participant2Socket.on(
-          WS_CHANNELS.transition.broadCast.close,
-          checkComplete
-        );
+        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
+        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
+        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
         otherSessionParticipantSocket.on(
-          WS_CHANNELS.transition.broadCast.close,
+          WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
         // Emit the transition event
@@ -693,23 +665,14 @@ describe('Transition Handler', () => {
           }
         };
 
-        organizerSocket.on(
-          WS_CHANNELS.transition.broadCast.open,
-          checkComplete
-        );
+        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
 
-        participant1Socket.on(
-          WS_CHANNELS.transition.broadCast.open,
-          checkComplete
-        );
+        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
-        participant2Socket.on(
-          WS_CHANNELS.transition.broadCast.open,
-          checkComplete
-        );
+        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
         otherSessionParticipantSocket.on(
-          WS_CHANNELS.transition.broadCast.open,
+          WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
 
@@ -743,8 +706,11 @@ describe('Transition Handler', () => {
         const expectedReceiveCount = 3; // Only 3 participants should receive the message
         const transitionCb = jest.fn();
         const otherLiveSessionParticipantTransitionListener = jest.fn();
-        const checkComplete = async () => {
-          receivedCount++;
+        const checkComplete = async (field: LiveSessionField) => {
+          if (field == 'status') {
+            receivedCount++;
+          }
+
           if (receivedCount === expectedReceiveCount) {
             expect(transitionCb).toHaveBeenCalled();
 
@@ -769,20 +735,11 @@ describe('Transition Handler', () => {
           }
         };
 
-        organizerSocket.on(
-          WS_CHANNELS.transition.broadCast.close,
-          checkComplete
-        );
-        participant1Socket.on(
-          WS_CHANNELS.transition.broadCast.close,
-          checkComplete
-        );
-        participant2Socket.on(
-          WS_CHANNELS.transition.broadCast.close,
-          checkComplete
-        );
+        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
+        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
+        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
         otherSessionParticipantSocket.on(
-          WS_CHANNELS.transition.broadCast.close,
+          WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
         // Emit the transition event

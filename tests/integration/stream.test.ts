@@ -3,7 +3,10 @@ import ioc from 'socket.io-client';
 import { Socket as ClientSocket } from 'socket.io-client';
 import currUser from '../data/curr-user';
 import { httpServer } from '../../src/http';
-import { LiveSessionWithAll } from '../../src/@types/liveSession';
+import {
+  LiveSessionField,
+  LiveSessionWithAll,
+} from '../../src/@types/liveSession';
 import liveSessionFactory from '../factories/live-session-factory';
 import { access_level, live_session_status } from '@prisma/client';
 import { Role } from '../../src/enums/session';
@@ -197,14 +200,18 @@ describe('Stream', () => {
     test('Started_At_Must_Be_Updated_When_First_Media_Pushed', async () => {
       const mediaBuffer = fs.readFileSync('tests/video/video.webm');
 
-      const cb = jest.fn(async (res) => {
-        const liveSession = await prismaClient.live_session.findFirst({
-          where: { id: readyLiveSession.id },
-        });
+      const cb = jest.fn();
 
-        expect(liveSession?.started_at).toBeDefined();
-      });
+      organizerSocket.on(
+        WS_CHANNELS.livesession.update,
+        async (field: LiveSessionField) => {
+          const liveSession = await prismaClient.live_session.findFirst({
+            where: { id: readyLiveSession.id },
+          });
 
+          expect(liveSession?.started_at).toBeDefined();
+        }
+      );
       organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
     });
 

@@ -11,6 +11,8 @@ export type LiveSessionWithAll = Prisma.live_sessionGetPayload<{
   };
 }>;
 
+export type LiveSessionField = keyof LiveSessionWithAll;
+
 export interface liveSession {
   id: string;
   role: Role;

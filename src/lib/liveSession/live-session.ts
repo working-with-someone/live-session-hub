@@ -1,6 +1,6 @@
-import { $Enums, live_session_status } from '@prisma/client';
+import { $Enums, live_session, live_session_status } from '@prisma/client';
 import prismaClient from '../../database/clients/prisma';
-import { LiveSessionWithAll } from '../../@types/liveSession';
+import { LiveSessionField, LiveSessionWithAll } from '../../@types/liveSession';
 import { Namespace } from 'socket.io';
 import WS_CHANNELS from '../../constants/channels';
 import { getNameSpace, getSocketIoServer } from '../../socket.io';
@@ -88,6 +88,26 @@ export class ParticipantLiveSession extends LiveSession {
   }
 }
 
+// Stage 3 데코레이터
+function NotifyUpdate(field: LiveSessionField) {
+  return function (
+    originalMethod: Function,
+    context: ClassMethodDecoratorContext
+  ) {
+    // 메서드 데코레이터인지 확인
+    if (context.kind !== 'method') {
+      throw new Error('NotifyUpdate can only be used on methods');
+    }
+
+    // 비동기 메서드인 경우를 처리
+    return async function (this: OrganizerLiveSession, ...args: any[]) {
+      const result = await originalMethod.call(this, ...args);
+      await this.notifyUpdate(field);
+      return result;
+    };
+  };
+}
+
 export class OrganizerLiveSession extends LiveSession {
   nextOpenTime?: Date;
   nextBreakTime?: Date;
@@ -132,6 +152,7 @@ export class OrganizerLiveSession extends LiveSession {
   }
 
   // started_at을 기록한다.
+  @NotifyUpdate('started_at')
   async start() {
     await prismaClient.live_session.update({
       where: { id: this.id },
@@ -141,12 +162,14 @@ export class OrganizerLiveSession extends LiveSession {
     });
   }
 
+  @NotifyUpdate('status')
   async ready() {
     if (!this.isReadyable()) {
       throw new Error(`Live session cannot be ready from ${this.status} `);
     }
   }
 
+  @NotifyUpdate('status')
   async open() {
     if (!this.isOpenable()) {
       throw new Error(`Live session cannot be opened from ${this.status} `);
@@ -156,10 +179,9 @@ export class OrganizerLiveSession extends LiveSession {
       where: { id: this.id },
       data: { status: $Enums.live_session_status.OPENED },
     });
-
-    this.nsp.emit(WS_CHANNELS.transition.broadCast.open);
   }
 
+  @NotifyUpdate('status')
   async break() {
     if (!this.isBreakable()) {
       throw new Error(`Live session cannot be breaked from ${this.status} `);
@@ -169,10 +191,9 @@ export class OrganizerLiveSession extends LiveSession {
       where: { id: this.id },
       data: { status: $Enums.live_session_status.BREAKED },
     });
-
-    this.nsp.emit(WS_CHANNELS.transition.broadCast.break);
   }
 
+  @NotifyUpdate('status')
   async close() {
     if (!this.isCloseable()) {
       throw new Error(`Live session cannot be closed from ${this.status} `);
@@ -182,8 +203,10 @@ export class OrganizerLiveSession extends LiveSession {
       where: { id: this.id },
       data: { status: $Enums.live_session_status.CLOSED },
     });
+  }
 
-    this.nsp.emit(WS_CHANNELS.transition.broadCast.close);
+  async notifyUpdate(field: LiveSessionField) {
+    this.nsp.emit(WS_CHANNELS.livesession.update, field);
   }
 
   isActivate() {

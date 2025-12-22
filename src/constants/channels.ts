@@ -19,6 +19,9 @@ const WS_CHANNELS = {
       close: 'transition:broadcast:close',
     },
   },
+  livesession: {
+    update: 'livesession:update',
+  },
 };
 
 export default WS_CHANNELS;
