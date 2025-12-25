@@ -88,21 +88,58 @@ export class ParticipantLiveSession extends LiveSession {
   }
 }
 
-// Stage 3 데코레이터
-function NotifyUpdate(field: LiveSessionField) {
+function sync() {
   return function (
     originalMethod: Function,
     context: ClassMethodDecoratorContext
   ) {
-    // 메서드 데코레이터인지 확인
     if (context.kind !== 'method') {
-      throw new Error('NotifyUpdate can only be used on methods');
+      throw new Error('sync can only be used on methods');
     }
 
-    // 비동기 메서드인 경우를 처리
+    return async function (this: OrganizerLiveSession, ...args: any[]) {
+      try {
+        // 데이터베이스에서 최신 live_session 데이터 조회
+        const latestLiveSession = await prismaClient.live_session.findUnique({
+          where: { id: this.id },
+          include: {
+            organizer: true,
+            allow: true,
+            break_time: true,
+            live_session_transition_log: true,
+            category: true,
+          },
+        });
+
+        // 데이터가 있으면 인스턴스 속성 업데이트
+        if (latestLiveSession) {
+          Object.assign(this, latestLiveSession);
+        }
+      } catch (error) {
+        // 데이터베이스 조회 실패 시 로깅하지만 메서드는 계속 실행
+        console.error(`Failed to sync live session ${this.id}:`, error);
+      }
+
+      // 원래 메서드 실행
+      return await originalMethod.call(this, ...args);
+    };
+  };
+}
+
+function notifyUpdate(field: LiveSessionField) {
+  return function (
+    originalMethod: Function,
+    context: ClassMethodDecoratorContext
+  ) {
+    if (context.kind !== 'method') {
+      throw new Error('notifyUpdate can only be used on methods');
+    }
+
     return async function (this: OrganizerLiveSession, ...args: any[]) {
       const result = await originalMethod.call(this, ...args);
+
       await this.notifyUpdate(field);
+
       return result;
     };
   };
@@ -152,7 +189,8 @@ export class OrganizerLiveSession extends LiveSession {
   }
 
   // started_at을 기록한다.
-  @NotifyUpdate('started_at')
+  @sync()
+  @notifyUpdate('started_at')
   async start() {
     await prismaClient.live_session.update({
       where: { id: this.id },
@@ -162,14 +200,16 @@ export class OrganizerLiveSession extends LiveSession {
     });
   }
 
-  @NotifyUpdate('status')
+  @sync()
+  @notifyUpdate('status')
   async ready() {
     if (!this.isReadyable()) {
       throw new Error(`Live session cannot be ready from ${this.status} `);
     }
   }
 
-  @NotifyUpdate('status')
+  @sync()
+  @notifyUpdate('status')
   async open() {
     if (!this.isOpenable()) {
       throw new Error(`Live session cannot be opened from ${this.status} `);
@@ -181,7 +221,8 @@ export class OrganizerLiveSession extends LiveSession {
     });
   }
 
-  @NotifyUpdate('status')
+  @sync()
+  @notifyUpdate('status')
   async break() {
     if (!this.isBreakable()) {
       throw new Error(`Live session cannot be breaked from ${this.status} `);
@@ -193,7 +234,8 @@ export class OrganizerLiveSession extends LiveSession {
     });
   }
 
-  @NotifyUpdate('status')
+  @sync()
+  @notifyUpdate('status')
   async close() {
     if (!this.isCloseable()) {
       throw new Error(`Live session cannot be closed from ${this.status} `);
