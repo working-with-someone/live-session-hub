@@ -12,6 +12,41 @@ import { Role } from '../../src/enums/session';
 import currUser from '../data/curr-user';
 
 describe('Chat Handler', () => {
+  const organizer = currUser;
+  const participant1 = testUserData.users[0];
+  const participant2 = testUserData.users[1];
+  const otherSessionParticipant = testUserData.users[2];
+
+  let breakedLiveSession: LiveSessionWithAll;
+  let breakedLiveSession2: LiveSessionWithAll;
+  let openedLiveSession: LiveSessionWithAll;
+
+  beforeEach(async () => {
+    breakedLiveSession = await liveSessionFactory.createAndSave({
+      access_level: access_level.PUBLIC,
+      status: live_session_status.BREAKED,
+      organizer: {
+        connect: { id: organizer.id },
+      },
+    });
+
+    breakedLiveSession2 = await liveSessionFactory.createAndSave({
+      access_level: access_level.PUBLIC,
+      status: live_session_status.BREAKED,
+      organizer: {
+        connect: { id: organizer.id },
+      },
+    });
+
+    openedLiveSession = await liveSessionFactory.createAndSave({
+      access_level: access_level.PUBLIC,
+      status: live_session_status.OPENED,
+      organizer: {
+        connect: { id: organizer.id },
+      },
+    });
+  });
+
   beforeAll(async () => {
     await currUser.insert();
 
@@ -27,6 +62,10 @@ describe('Chat Handler', () => {
     }
   });
 
+  afterEach(async () => {
+    liveSessionFactory.cleanup();
+  });
+
   afterAll((done) => {
     httpServer.close(done);
   });
@@ -34,98 +73,77 @@ describe('Chat Handler', () => {
   afterAll(async () => {
     await currUser.delete();
     await prismaClient.user.deleteMany({});
+    await prismaClient.live_session.deleteMany({});
   });
 
   describe(`BroadCast`, () => {
-    const organizer = currUser;
-    const participant1 = testUserData.users[0];
-    const participant2 = testUserData.users[1];
-    const otherSessionParticipant = testUserData.users[2]; // New participant for a different session
-
     let organizerSocket: ClientSocket;
     let participant1Socket: ClientSocket;
     let participant2Socket: ClientSocket;
-    let otherSessionParticipantSocket: ClientSocket; // Socket for the new participant
+    let otherSessionParticipantSocket: ClientSocket;
+
+    // Socket 연결을 위한 헬퍼 함수
+    const connectSockets = (sessionId: string, done: jest.DoneCallback) => {
+      organizerSocket = ioc(
+        process.env.SERVER_URL +
+          `/livesession/${sessionId}?role=${Role.organizer}`,
+        {
+          extraHeaders: { userId: organizer.id.toString() },
+        }
+      );
+
+      participant1Socket = ioc(
+        process.env.SERVER_URL +
+          `/livesession/${sessionId}?role=${Role.participant}`,
+        {
+          extraHeaders: { userId: participant1.id.toString() },
+        }
+      );
+
+      participant2Socket = ioc(
+        process.env.SERVER_URL +
+          `/livesession/${sessionId}?role=${Role.participant}`,
+        {
+          extraHeaders: { userId: participant2.id.toString() },
+        }
+      );
+
+      otherSessionParticipantSocket = ioc(
+        process.env.SERVER_URL +
+          `/livesession/${breakedLiveSession2.id}?role=${Role.participant}`,
+        {
+          extraHeaders: { userId: otherSessionParticipant.id.toString() },
+        }
+      );
+
+      let connectedCount = 0;
+      const onConnect = () => {
+        connectedCount++;
+        if (connectedCount === 4) {
+          done();
+        }
+      };
+
+      organizerSocket.on('connect', onConnect);
+      participant1Socket.on('connect', onConnect);
+      participant2Socket.on('connect', onConnect);
+      otherSessionParticipantSocket.on('connect', onConnect);
+    };
+
+    const disconnectAllSockets = () => {
+      organizerSocket?.disconnect();
+      participant1Socket?.disconnect();
+      participant2Socket?.disconnect();
+      otherSessionParticipantSocket?.disconnect();
+    };
 
     describe('to breaked live session', () => {
-      let breakedLiveSession: LiveSessionWithAll;
-      let breakedLiveSession2: LiveSessionWithAll;
-
-      beforeAll(async () => {
-        breakedLiveSession = await liveSessionFactory.createAndSave({
-          access_level: access_level.PUBLIC,
-          status: live_session_status.BREAKED,
-          organizer: {
-            connect: { id: organizer.id },
-          },
-        });
-
-        breakedLiveSession2 = await liveSessionFactory.createAndSave({
-          access_level: access_level.PUBLIC,
-          status: live_session_status.BREAKED,
-          organizer: {
-            connect: { id: organizer.id },
-          },
-        });
-      });
-
-      afterAll(async () => {
-        await prismaClient.live_session.deleteMany({});
-      });
-
       beforeEach((done) => {
-        organizerSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${breakedLiveSession.id}?role=${Role.organizer}`,
-          {
-            extraHeaders: { userId: organizer.id.toString() },
-          }
-        );
-
-        participant1Socket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${breakedLiveSession.id}?role=${Role.participant}`,
-          {
-            extraHeaders: { userId: participant1.id.toString() },
-          }
-        );
-
-        participant2Socket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${breakedLiveSession.id}?role=${Role.participant}`,
-          {
-            extraHeaders: { userId: participant2.id.toString() },
-          }
-        );
-
-        otherSessionParticipantSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${breakedLiveSession2.id}?role=${Role.participant}`,
-          {
-            extraHeaders: { userId: otherSessionParticipant.id.toString() },
-          }
-        );
-
-        let connectedCount = 0;
-        const onConnect = () => {
-          connectedCount++;
-          if (connectedCount === 4) {
-            // Now we have 4 participants to connect
-            done();
-          }
-        };
-
-        organizerSocket.on('connect', onConnect);
-        participant1Socket.on('connect', onConnect);
-        participant2Socket.on('connect', onConnect);
-        otherSessionParticipantSocket.on('connect', onConnect); // Listen for the new participant's connection
+        connectSockets(breakedLiveSession.id, done);
       });
 
       afterEach(() => {
-        organizerSocket.disconnect();
-        participant1Socket.disconnect();
-        participant2Socket.disconnect();
-        otherSessionParticipantSocket.disconnect(); // Disconnect the new participant
+        disconnectAllSockets();
       });
 
       test('Response_200_Organizer_Broadcast', (done) => {
@@ -166,7 +184,7 @@ describe('Chat Handler', () => {
           },
         };
         let receivedCount = 0;
-        const expectedReceiveCount = 3; // Only 3 participants should receive the message
+        const expectedReceiveCount = 3;
 
         organizerSocket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
           expect(data).toMatchObject(chat);
@@ -195,7 +213,6 @@ describe('Chat Handler', () => {
           }
         });
 
-        // Ensure the other session participant does not receive the message
         otherSessionParticipantSocket.on(
           WS_CHANNELS.chat.broadCastRecive,
           (data) => {
@@ -223,7 +240,7 @@ describe('Chat Handler', () => {
         };
 
         let receivedCount = 0;
-        const expectedReceiveCount = 3; // Only 3 participants should receive the message
+        const expectedReceiveCount = 3;
 
         organizerSocket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
           expect(data).toMatchObject(chat);
@@ -251,7 +268,6 @@ describe('Chat Handler', () => {
           }
         });
 
-        // Ensure the other session participant does not receive the message
         otherSessionParticipantSocket.on(
           WS_CHANNELS.chat.broadCastRecive,
           (data) => {
@@ -268,19 +284,8 @@ describe('Chat Handler', () => {
     });
 
     describe('to opened live session', () => {
-      let openedLiveSession: LiveSessionWithAll;
-
-      beforeAll(async () => {
-        openedLiveSession = await liveSessionFactory.createAndSave({
-          access_level: access_level.PUBLIC,
-          status: live_session_status.OPENED,
-          organizer: {
-            connect: { id: organizer.id },
-          },
-        });
-      });
-
       beforeEach((done) => {
+        // 다른 세션의 참여자는 breakedLiveSession2에 연결된 상태로 유지
         organizerSocket = ioc(
           process.env.SERVER_URL +
             `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
@@ -305,10 +310,19 @@ describe('Chat Handler', () => {
           }
         );
 
+        // otherSessionParticipantSocket는 breakedLiveSession2에 계속 연결
+        otherSessionParticipantSocket = ioc(
+          process.env.SERVER_URL +
+            `/livesession/${breakedLiveSession2.id}?role=${Role.participant}`,
+          {
+            extraHeaders: { userId: otherSessionParticipant.id.toString() },
+          }
+        );
+
         let connectedCount = 0;
         const onConnect = () => {
           connectedCount++;
-          if (connectedCount === 3) {
+          if (connectedCount === 4) {
             done();
           }
         };
@@ -316,16 +330,11 @@ describe('Chat Handler', () => {
         organizerSocket.on('connect', onConnect);
         participant1Socket.on('connect', onConnect);
         participant2Socket.on('connect', onConnect);
-      });
-
-      afterAll(async () => {
-        await prismaClient.live_session.deleteMany({});
+        otherSessionParticipantSocket.on('connect', onConnect);
       });
 
       afterEach(() => {
-        organizerSocket.disconnect();
-        participant1Socket.disconnect();
-        participant2Socket.disconnect();
+        disconnectAllSockets();
       });
 
       test('Response_403_Organizer_Broadcast', (done) => {
