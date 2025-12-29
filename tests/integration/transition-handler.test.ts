@@ -49,12 +49,12 @@ describe('Transition Handler', () => {
     const organizer = currUser;
     const participant1 = testUserData.users[0];
     const participant2 = testUserData.users[1];
-    const otherSessionParticipant = testUserData.users[2]; // New participant for a different session
+    const otherSessionParticipant = testUserData.users[2];
 
     let organizerSocket: ClientSocket;
     let participant1Socket: ClientSocket;
     let participant2Socket: ClientSocket;
-    let otherSessionParticipantSocket: ClientSocket; // Socket for the new participant
+    let otherSessionParticipantSocket: ClientSocket;
 
     describe('Ready => ?', () => {
       let readyLiveSession: LiveSessionWithAll;
@@ -116,7 +116,6 @@ describe('Transition Handler', () => {
         const onConnect = () => {
           connectedCount++;
           if (connectedCount === 4) {
-            // Now we have 4 participants to connect
             done();
           }
         };
@@ -140,9 +139,6 @@ describe('Transition Handler', () => {
 
         const transitionCb: ResponseCb = async ({ status }) => {
           expect(status).toEqual(400);
-          // participant 모두가 transition braodcast를 받지 않아야한다.
-
-          // live session의 status가 update되지 않아야한다.
           const _readyLiveSEssion = await prismaClient.live_session.findFirst({
             where: { id: readyLiveSession.id },
           });
@@ -153,49 +149,45 @@ describe('Transition Handler', () => {
           done();
         };
 
-        // Set up broadcast listeners for all participants
         organizerSocket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
         participant1Socket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
         participant2Socket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
 
-        // 다른 live session의 participant는 transition broadcast를 받지 않는다.
         otherSessionParticipantSocket.on(
           WS_CHANNELS.transition.broadCast.ready,
           otherLiveSessionParticipantTransitionListener
         );
 
-        // emit transition
         organizerSocket.emit(WS_CHANNELS.transition.ready, transitionCb);
       });
 
       test('Ready => Opened Must_Response_With_200', (done) => {
         let receivedCount = 0;
-        const expectedReceiveCount = 3; // Only 3 participants should receive the message
+        const expectedReceiveCount = 3;
         const transitionCb = jest.fn();
 
         const otherLiveSessionParticipantTransitionListener = jest.fn();
 
         const checkComplete = async () => {
           receivedCount++;
-          // 모든 aprticipant가 transition broadcast를 수신했다면
           if (receivedCount === expectedReceiveCount) {
             expect(transitionCb).toHaveBeenCalled();
             expect(transitionCb.mock.calls[0][0].status).toEqual(
               httpStatusCode.OK
             );
 
-            // participant 모두가 transition braodcast를 받아야한다.
             expect(receivedCount).toEqual(expectedReceiveCount);
 
-            // other live session participant가 transition braodcast를 받지 않아야한다.
             expect(
               otherLiveSessionParticipantTransitionListener
             ).not.toHaveBeenCalled();
 
-            // live session의 status가 opened로 update되어야함.
             const _readyLiveSession = await prismaClient.live_session.findFirst(
               {
                 where: { id: readyLiveSession.id },
+                include: {
+                  live_session_transition_log: true,
+                },
               }
             );
             expect(_readyLiveSession).toBeDefined();
@@ -203,24 +195,34 @@ describe('Transition Handler', () => {
               live_session_status.OPENED
             );
 
+            expect(
+              _readyLiveSession?.live_session_transition_log
+            ).toBeDefined();
+            expect(_readyLiveSession!.live_session_transition_log).toHaveLength(
+              1
+            );
+            expect(
+              _readyLiveSession!.live_session_transition_log[0].from_state
+            ).toEqual(live_session_status.READY);
+            expect(
+              _readyLiveSession!.live_session_transition_log[0].to_state
+            ).toEqual(live_session_status.OPENED);
+
             done();
           }
         };
 
-        // Set up broadcast listeners for all participants
         organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
 
         participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
         participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
-        // Other live session participant should NOT receive broadcast
         otherSessionParticipantSocket.on(
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
 
-        // Emit the transition event
         organizerSocket.emit(WS_CHANNELS.transition.open, transitionCb);
       });
 
@@ -229,9 +231,6 @@ describe('Transition Handler', () => {
 
         const transitionCb: ResponseCb = async ({ status }) => {
           expect(status).toEqual(400);
-          // participant 모두가 transition braodcast를 받지 않아야한다.
-
-          // live session의 status가 update되지 않아야한다.
           const _readyLiveSEssion = await prismaClient.live_session.findFirst({
             where: { id: readyLiveSession.id },
           });
@@ -242,49 +241,45 @@ describe('Transition Handler', () => {
           done();
         };
 
-        // Set up broadcast listeners for all participants
         organizerSocket.on(WS_CHANNELS.transition.broadCast.break, () => {});
         participant1Socket.on(WS_CHANNELS.transition.broadCast.break, () => {});
         participant2Socket.on(WS_CHANNELS.transition.broadCast.break, () => {});
 
-        // Other live session participant should NOT receive broadcast
         otherSessionParticipantSocket.on(
           WS_CHANNELS.transition.broadCast.break,
           otherLiveSessionParticipantTransitionListener
         );
 
-        // Emit the transition event
         organizerSocket.emit(WS_CHANNELS.transition.break, transitionCb);
       });
 
       test('Ready => Closed Must_Response_With_200', (done) => {
         let receivedCount = 0;
-        const expectedReceiveCount = 3; // Only 3 participants should receive the message
+        const expectedReceiveCount = 3;
         const transitionCb = jest.fn();
 
         const otherLiveSessionParticipantTransitionListener = jest.fn();
 
         const checkComplete = async () => {
           receivedCount++;
-          // 모든 aprticipant가 transition broadcast를 수신했다면
           if (receivedCount === expectedReceiveCount) {
             expect(transitionCb).toHaveBeenCalled();
             expect(transitionCb.mock.calls[0][0].status).toEqual(
               httpStatusCode.OK
             );
 
-            // participant 모두가 transition braodcast를 받아야한다.
             expect(receivedCount).toEqual(expectedReceiveCount);
 
-            // other live session participant가 transition braodcast를 받지 않아야한다.
             expect(
               otherLiveSessionParticipantTransitionListener
             ).not.toHaveBeenCalled();
 
-            // live session의 status가 opened로 update되어야함.
             const _readyLiveSession = await prismaClient.live_session.findFirst(
               {
                 where: { id: readyLiveSession.id },
+                include: {
+                  live_session_transition_log: true,
+                },
               }
             );
             expect(_readyLiveSession).toBeDefined();
@@ -292,24 +287,34 @@ describe('Transition Handler', () => {
               live_session_status.CLOSED
             );
 
+            expect(
+              _readyLiveSession?.live_session_transition_log
+            ).toBeDefined();
+            expect(_readyLiveSession!.live_session_transition_log).toHaveLength(
+              1
+            );
+            expect(
+              _readyLiveSession!.live_session_transition_log[0].from_state
+            ).toEqual(live_session_status.READY);
+            expect(
+              _readyLiveSession!.live_session_transition_log[0].to_state
+            ).toEqual(live_session_status.CLOSED);
+
             done();
           }
         };
 
-        // Set up broadcast listeners for all participants
         organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
 
         participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
         participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
-        // Other live session participant should NOT receive broadcast
         otherSessionParticipantSocket.on(
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
 
-        // Emit the transition event
         organizerSocket.emit(WS_CHANNELS.transition.close, transitionCb);
       });
     });
@@ -374,7 +379,6 @@ describe('Transition Handler', () => {
         const onConnect = () => {
           connectedCount++;
           if (connectedCount === 4) {
-            // Now we have 4 participants to connect
             done();
           }
         };
@@ -397,7 +401,6 @@ describe('Transition Handler', () => {
       test('Opened => Ready Must_Response_With_400', (done) => {
         const transitionCb: ResponseCb = async ({ status }) => {
           expect(status).toEqual(400);
-          // live session의 status가 update되지 않아야한다.
           const _openedLiveSession = await prismaClient.live_session.findFirst({
             where: { id: openedLiveSession.id },
           });
@@ -410,8 +413,7 @@ describe('Transition Handler', () => {
           done();
         };
 
-        // emit transition
-        organizerSocket.emit(WS_CHANNELS.transition.open, transitionCb);
+        organizerSocket.emit(WS_CHANNELS.transition.ready, transitionCb);
       });
 
       test('Opened => Opened Must_Response_With_400', (done) => {
@@ -434,7 +436,7 @@ describe('Transition Handler', () => {
 
       test('Opened => Breaked Must_Response_With_200', (done) => {
         let receivedCount = 0;
-        const expectedReceiveCount = 3; // Only 3 participants should receive the message
+        const expectedReceiveCount = 3;
         const transitionCb = jest.fn();
         const otherLiveSessionParticipantTransitionListener = jest.fn();
 
@@ -455,16 +457,32 @@ describe('Transition Handler', () => {
             const _openedLiveSession =
               await prismaClient.live_session.findFirst({
                 where: { id: openedLiveSession.id },
+                include: {
+                  live_session_transition_log: true,
+                },
               });
             expect(_openedLiveSession).toBeDefined();
             expect(_openedLiveSession!.status).toEqual(
               live_session_status.BREAKED
             );
+
+            expect(
+              _openedLiveSession?.live_session_transition_log
+            ).toBeDefined();
+            expect(
+              _openedLiveSession!.live_session_transition_log
+            ).toHaveLength(1);
+            expect(
+              _openedLiveSession!.live_session_transition_log[0].from_state
+            ).toEqual(live_session_status.OPENED);
+            expect(
+              _openedLiveSession!.live_session_transition_log[0].to_state
+            ).toEqual(live_session_status.BREAKED);
+
             done();
           }
         };
 
-        // Set up broadcast listeners for all participants
         organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
         participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
         participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
@@ -472,13 +490,12 @@ describe('Transition Handler', () => {
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
-        // Emit the transition event
         organizerSocket.emit(WS_CHANNELS.transition.break, transitionCb);
       });
 
       test('Opened => Closed Must_Response_With_200', (done) => {
         let receivedCount = 0;
-        const expectedReceiveCount = 3; // Only 3 participants should receive the message
+        const expectedReceiveCount = 3;
         const transitionCb = jest.fn();
         const otherLiveSessionParticipantTransitionListener = jest.fn();
         const checkComplete = async () => {
@@ -495,11 +512,28 @@ describe('Transition Handler', () => {
             const _openedLiveSession =
               await prismaClient.live_session.findFirst({
                 where: { id: openedLiveSession.id },
+                include: {
+                  live_session_transition_log: true,
+                },
               });
             expect(_openedLiveSession).toBeDefined();
             expect(_openedLiveSession!.status).toEqual(
               live_session_status.CLOSED
             );
+
+            expect(
+              _openedLiveSession?.live_session_transition_log
+            ).toBeDefined();
+            expect(
+              _openedLiveSession!.live_session_transition_log
+            ).toHaveLength(1);
+            expect(
+              _openedLiveSession!.live_session_transition_log[0].from_state
+            ).toEqual(live_session_status.OPENED);
+            expect(
+              _openedLiveSession!.live_session_transition_log[0].to_state
+            ).toEqual(live_session_status.CLOSED);
+
             done();
           }
         };
@@ -511,7 +545,6 @@ describe('Transition Handler', () => {
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
-        // Emit the transition event
         organizerSocket.emit(WS_CHANNELS.transition.close, transitionCb);
       });
     });
@@ -576,7 +609,6 @@ describe('Transition Handler', () => {
         const onConnect = () => {
           connectedCount++;
           if (connectedCount === 4) {
-            // Now we have 4 participants to connect
             done();
           }
         };
@@ -601,9 +633,6 @@ describe('Transition Handler', () => {
 
         const transitionCb: ResponseCb = async ({ status }) => {
           expect(status).toEqual(400);
-          // participant 모두가 transition braodcast를 받지 않아야한다.
-
-          // live session의 status가 update되지 않아야한다.
           const _breakedLiveSession = await prismaClient.live_session.findFirst(
             {
               where: { id: breakedLiveSession.id },
@@ -618,24 +647,21 @@ describe('Transition Handler', () => {
           done();
         };
 
-        // Set up broadcast listeners for all participants
         organizerSocket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
         participant1Socket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
         participant2Socket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
 
-        // 다른 live session의 participant는 transition broadcast를 받지 않는다.
         otherSessionParticipantSocket.on(
           WS_CHANNELS.transition.broadCast.ready,
           otherLiveSessionParticipantTransitionListener
         );
 
-        // emit transition
         organizerSocket.emit(WS_CHANNELS.transition.ready, transitionCb);
       });
 
       test('Breaked => Opened Must_Response_With_200', (done) => {
         let receivedCount = 0;
-        const expectedReceiveCount = 3; // Only 3 participants should receive the message
+        const expectedReceiveCount = 3;
         const transitionCb = jest.fn();
         const otherLiveSessionParticipantTransitionListener = jest.fn();
         const checkComplete = async () => {
@@ -654,12 +680,28 @@ describe('Transition Handler', () => {
             const _breakedLiveSession =
               await prismaClient.live_session.findFirst({
                 where: { id: breakedLiveSession.id },
+                include: {
+                  live_session_transition_log: true,
+                },
               });
 
             expect(_breakedLiveSession).toBeDefined();
             expect(_breakedLiveSession!.status).toEqual(
               live_session_status.OPENED
             );
+
+            expect(
+              _breakedLiveSession?.live_session_transition_log
+            ).toBeDefined();
+            expect(
+              _breakedLiveSession!.live_session_transition_log
+            ).toHaveLength(1);
+            expect(
+              _breakedLiveSession!.live_session_transition_log[0].from_state
+            ).toEqual(live_session_status.BREAKED);
+            expect(
+              _breakedLiveSession!.live_session_transition_log[0].to_state
+            ).toEqual(live_session_status.OPENED);
 
             done();
           }
@@ -703,7 +745,7 @@ describe('Transition Handler', () => {
 
       test('Breaked => Closed Must_Response_With_200', (done) => {
         let receivedCount = 0;
-        const expectedReceiveCount = 3; // Only 3 participants should receive the message
+        const expectedReceiveCount = 3;
         const transitionCb = jest.fn();
         const otherLiveSessionParticipantTransitionListener = jest.fn();
         const checkComplete = async (field: LiveSessionField) => {
@@ -725,11 +767,27 @@ describe('Transition Handler', () => {
             const _breakedLiveSession =
               await prismaClient.live_session.findFirst({
                 where: { id: breakedLiveSession.id },
+                include: {
+                  live_session_transition_log: true,
+                },
               });
             expect(_breakedLiveSession).toBeDefined();
             expect(_breakedLiveSession!.status).toEqual(
               live_session_status.CLOSED
             );
+
+            expect(
+              _breakedLiveSession?.live_session_transition_log
+            ).toBeDefined();
+            expect(
+              _breakedLiveSession!.live_session_transition_log
+            ).toHaveLength(1);
+            expect(
+              _breakedLiveSession!.live_session_transition_log[0].from_state
+            ).toEqual(live_session_status.BREAKED);
+            expect(
+              _breakedLiveSession!.live_session_transition_log[0].to_state
+            ).toEqual(live_session_status.CLOSED);
 
             done();
           }
@@ -742,7 +800,6 @@ describe('Transition Handler', () => {
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
-        // Emit the transition event
         organizerSocket.emit(WS_CHANNELS.transition.close, transitionCb);
       });
     });

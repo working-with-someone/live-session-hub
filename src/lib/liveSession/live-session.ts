@@ -88,6 +88,33 @@ export class ParticipantLiveSession extends LiveSession {
   }
 }
 
+// state update operation의 decorator로, update operation으로 인해 transition이 발생한 후 logging한다.
+function logTransition(
+  originalMethod: Function,
+  context: ClassMethodDecoratorContext
+) {
+  return async function (this: OrganizerLiveSession, ...args: any[]) {
+    // update operation이 발생하기 전 state
+    const fromState = this.status;
+
+    // update operation이 수행됨
+    await originalMethod.call(this, ...args);
+
+    // update operation이 발생한 후 state
+    const toState = this.status;
+
+    // transition log 생성
+    await prismaClient.live_session_transition_log.create({
+      data: {
+        from_state: fromState,
+        to_state: toState,
+        live_session_id: this.id,
+        transitioned_at: new Date(),
+      },
+    });
+  };
+}
+
 function sync(originalMethod: Function, context: ClassMethodDecoratorContext) {
   return async function (this: OrganizerLiveSession, ...args: any[]) {
     const result = await originalMethod.call(this, ...args);
@@ -169,8 +196,8 @@ export class OrganizerLiveSession extends LiveSession {
     this.lastActivity = new Date();
   }
 
-  // started_at을 기록한다.
   @notifyUpdate('started_at')
+  @logTransition
   @sync
   async start() {
     await prismaClient.live_session.update({
@@ -182,6 +209,7 @@ export class OrganizerLiveSession extends LiveSession {
   }
 
   @notifyUpdate('status')
+  @logTransition
   @sync
   async ready() {
     if (!this.isReadyable()) {
@@ -190,6 +218,7 @@ export class OrganizerLiveSession extends LiveSession {
   }
 
   @notifyUpdate('status')
+  @logTransition
   @sync
   async open() {
     if (!this.isOpenable()) {
@@ -203,6 +232,7 @@ export class OrganizerLiveSession extends LiveSession {
   }
 
   @notifyUpdate('status')
+  @logTransition
   @sync
   async break() {
     if (!this.isBreakable()) {
@@ -216,6 +246,7 @@ export class OrganizerLiveSession extends LiveSession {
   }
 
   @notifyUpdate('status')
+  @logTransition
   @sync
   async close() {
     if (!this.isCloseable()) {
