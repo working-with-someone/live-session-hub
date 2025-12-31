@@ -8,6 +8,7 @@
   "scripts": {
     "watch": "dotenvx run --env-file=.env.development -- nodemon",
     "compile": "tsc",
+    "local": "dotenvx run --env-file=.env.local -- nodemon",
     "start": "node dist/server.js",
     "lint": "eslint . --config eslint.config.js",
     "db:migrate:prod": "dotenvx run --env-file=.env -- prisma migrate deploy",
@@ -19,7 +20,8 @@
     "db:reset:test": "dotenvx run --env-file=.env.test -- prisma migrate reset",
     "test": "dotenvx run --env-file=.env.test -- yarn run test:unit && yarn run test:integration",
     "test:unit": "dotenvx run --env-file=.env.test -- jest tests/unit --config=jest.config.unit.js",
-    "test:integration": "dotenvx run --env-file=.env.test -- jest tests/integration --runInBand --config=jest.config.integration.js"
+    "test:integration": "dotenvx run --env-file=.env.test -- jest tests/integration --runInBand --config=jest.config.integration.js",
+    "test:single": "dotenvx run --env-file=.env.test -- jest --runInBand --config=jest.config.integration.js"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.6.0",
@@ -42,7 +44,7 @@
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3",
-    "typescript-eslint": "^8.48.1"
+    "typescript-eslint": "^8.50.1"
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.32.1",
