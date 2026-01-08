@@ -4,6 +4,11 @@ import { LiveSessionField, LiveSessionWithAll } from '../../@types/liveSession';
 import { Namespace } from 'socket.io';
 import WS_CHANNELS from '../../constants/channels';
 import { getNameSpace, getSocketIoServer } from '../../socket.io';
+import liveSessionPool from './pool';
+import {
+  liveSessionBreakHeap,
+  liveSessionOpenHeap,
+} from './schedular/open-break-schedular';
 
 export class LiveSession implements LiveSessionWithAll {
   id: string;
@@ -257,6 +262,10 @@ export class OrganizerLiveSession extends LiveSession {
       where: { id: this.id },
       data: { status: $Enums.live_session_status.CLOSED },
     });
+
+    liveSessionPool.remove(this.id);
+    liveSessionOpenHeap.remove(this.id);
+    liveSessionBreakHeap.remove(this.id);
   }
 
   async notifyUpdate(field: LiveSessionField) {
