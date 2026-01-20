@@ -4,8 +4,9 @@ import { initSocketIoServer } from './socket.io';
 import prismaClient from './database/clients/prisma';
 import redisClient from './database/clients/redis';
 import { liveSessionExpireScheduler } from './lib/liveSession/schedular/expire-schedular';
+import app from './app';
 
-export const httpServer = createServer();
+export const httpServer = createServer(app);
 
 export function run() {
   httpServer.listen(process.env.PORT, () => {
