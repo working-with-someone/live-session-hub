@@ -66,6 +66,22 @@ export class LiveSession implements LiveSessionWithAll {
     this.live_session_transition_log = data.live_session_transition_log;
     this.category = data.category;
   }
+
+  isReady() {
+    return this.status === live_session_status.READY;
+  }
+
+  isOpened() {
+    return this.status === live_session_status.OPENED;
+  }
+
+  isBreaked() {
+    return this.status === live_session_status.BREAKED;
+  }
+
+  isClosed() {
+    return this.status === live_session_status.CLOSED;
+  }
 }
 
 export class ParticipantLiveSession extends LiveSession {
@@ -192,7 +208,6 @@ export class OrganizerLiveSession extends LiveSession {
     if (this.status === live_session_status.CLOSED) {
       throw new Error('Live session is closed.');
     }
-
     // touch는 media push가 발생했을 때 call되며, live session이 ready라면 open status로 변환해줘야한다.
     if (this.status === live_session_status.READY) {
       await this.open();
