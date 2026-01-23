@@ -208,16 +208,11 @@ export class OrganizerLiveSession extends LiveSession {
     if (this.status === live_session_status.CLOSED) {
       throw new Error('Live session is closed.');
     }
-    // touch는 media push가 발생했을 때 call되며, live session이 ready라면 open status로 변환해줘야한다.
-    if (this.status === live_session_status.READY) {
-      await this.open();
-    }
 
     this.lastActivity = new Date();
   }
 
   @notifyUpdate('started_at')
-  @logTransition
   @sync
   async start() {
     await prismaClient.live_session.update({
