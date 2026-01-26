@@ -67,6 +67,7 @@ describe('Connection', () => {
             `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant.id.toString() },
+            forceNew: true,
           }
         );
 
@@ -82,6 +83,7 @@ describe('Connection', () => {
             `/livesession/not-uuid?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant.id.toString() },
+            forceNew: true,
           }
         );
 
@@ -98,6 +100,7 @@ describe('Connection', () => {
             `/livesession/11111111-1111-1111-1111-111111111111?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant.id.toString() },
+            forceNew: true,
           }
         );
 
@@ -118,6 +121,7 @@ describe('Connection', () => {
             `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant.id.toString() },
+            forceNew: true,
           }
         );
 
@@ -158,6 +162,7 @@ describe('Connection', () => {
             `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant.id.toString() },
+            forceNew: true,
           }
         );
 
@@ -208,6 +213,7 @@ describe('Connection', () => {
             `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
+            forceNew: true,
           }
         );
 
@@ -223,6 +229,7 @@ describe('Connection', () => {
             `/livesession/not-uuid?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
+            forceNew: true,
           }
         );
 
@@ -239,6 +246,7 @@ describe('Connection', () => {
             `/livesession/11111111-1111-1111-1111-111111111111?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
+            forceNew: true,
           }
         );
 
