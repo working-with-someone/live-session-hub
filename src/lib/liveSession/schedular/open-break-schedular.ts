@@ -48,9 +48,7 @@ class LiveSessionOpenScheduler extends LiveSessionScheduler {
 
         liveSessionOpenHeap.pop();
 
-        liveSession.open().then(() => {
-          liveSessionBreakScheduler.add(liveSession.id);
-        });
+        liveSession.open();
       }
     });
 
@@ -106,9 +104,7 @@ class LiveSessionBreakScheduler extends LiveSessionScheduler {
         }
         liveSessionBreakHeap.pop();
 
-        liveSession.break().then(() => {
-          liveSessionOpenScheduler.add(liveSession.id);
-        });
+        liveSession.break();
       }
     });
 

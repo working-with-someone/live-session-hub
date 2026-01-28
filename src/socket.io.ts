@@ -16,6 +16,8 @@ import {
   LiveSession,
   OrganizerLiveSession,
 } from './lib/liveSession/live-session';
+import { Socket } from 'socket.io';
+import { ExtendedError } from 'socket.io';
 
 // Export 타입 정의
 export type { SocketIoServer };
@@ -37,16 +39,22 @@ export function initSocketIoServer(httpServer: Server): SocketIoServer {
   });
 
   const liveSessionNsp = socketIoServer.of(
-    /^\/livesession\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
+    /^\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
   );
 
   socketIoServer.engine.use(session(sessionConfig));
 
   // connection과정에서 한번만 실행된다.
+  liveSessionNsp.use((socket: Socket, next: (err?: ExtendedError) => void) => {
+    next();
+  });
   liveSessionNsp.use(authMiddleware.attachUserOrUnauthorized);
   liveSessionNsp.use(liveSessionMiddleware.attachLiveSessionRoleOrNotFound);
   liveSessionNsp.use(liveSessionMiddleware.attachLiveSession);
   liveSessionNsp.use(liveSessionMiddleware.attachFfmpegProcessToOrganizer);
+  liveSessionNsp.use(
+    liveSessionMiddleware.registerLiveSessionOnOrganizerConnection
+  );
 
   liveSessionNsp.on(
     'connection',
@@ -81,7 +89,7 @@ export function getSocketIoServer(): SocketIoServer {
 export function getNameSpace(str: string): Namespace {
   const socketIoServer = getSocketIoServer();
 
-  const namespace = socketIoServer.of(`/livesession/${str}`);
+  const namespace = socketIoServer.of(`/${str}`);
 
   return namespace;
 }

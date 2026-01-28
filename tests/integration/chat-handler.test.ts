@@ -66,8 +66,8 @@ describe('Chat Handler', () => {
     liveSessionFactory.cleanup();
   });
 
-  afterAll((done) => {
-    httpServer.close(done);
+  afterAll(async () => {
+    await new Promise((resolve) => httpServer.close(resolve));
   });
 
   afterAll(async () => {
@@ -82,68 +82,80 @@ describe('Chat Handler', () => {
     let participant2Socket: ClientSocket;
     let otherSessionParticipantSocket: ClientSocket;
 
-    // Socket 연결을 위한 헬퍼 함수
-    const connectSockets = (sessionId: string, done: jest.DoneCallback) => {
+    const connectSockets = async (sessionId: string) => {
       organizerSocket = ioc(
-        process.env.SERVER_URL +
-          `/livesession/${sessionId}?role=${Role.organizer}`,
+        process.env.SERVER_URL + `/${sessionId}?role=${Role.organizer}`,
         {
           extraHeaders: { userId: organizer.id.toString() },
+          forceNew: true,
         }
       );
 
       participant1Socket = ioc(
-        process.env.SERVER_URL +
-          `/livesession/${sessionId}?role=${Role.participant}`,
+        process.env.SERVER_URL + `/${sessionId}?role=${Role.participant}`,
         {
           extraHeaders: { userId: participant1.id.toString() },
+          forceNew: true,
         }
       );
 
       participant2Socket = ioc(
-        process.env.SERVER_URL +
-          `/livesession/${sessionId}?role=${Role.participant}`,
+        process.env.SERVER_URL + `/${sessionId}?role=${Role.participant}`,
         {
           extraHeaders: { userId: participant2.id.toString() },
+          forceNew: true,
         }
       );
 
       otherSessionParticipantSocket = ioc(
         process.env.SERVER_URL +
-          `/livesession/${breakedLiveSession2.id}?role=${Role.participant}`,
+          `/${breakedLiveSession2.id}?role=${Role.participant}`,
         {
           extraHeaders: { userId: otherSessionParticipant.id.toString() },
+          forceNew: true,
         }
       );
 
-      let connectedCount = 0;
-      const onConnect = () => {
-        connectedCount++;
-        if (connectedCount === 4) {
-          done();
-        }
-      };
-
-      organizerSocket.on('connect', onConnect);
-      participant1Socket.on('connect', onConnect);
-      participant2Socket.on('connect', onConnect);
-      otherSessionParticipantSocket.on('connect', onConnect);
+      await Promise.all([
+        new Promise<void>((resolve, reject) =>
+          organizerSocket.on('connect', resolve)
+        ),
+        new Promise<void>((resolve, reject) =>
+          participant1Socket.on('connect', resolve)
+        ),
+        new Promise<void>((resolve, reject) =>
+          participant2Socket.on('connect', resolve)
+        ),
+        new Promise<void>((resolve, reject) =>
+          otherSessionParticipantSocket.on('connect', resolve)
+        ),
+      ]);
     };
 
-    const disconnectAllSockets = () => {
-      organizerSocket?.disconnect();
-      participant1Socket?.disconnect();
-      participant2Socket?.disconnect();
-      otherSessionParticipantSocket?.disconnect();
+    const disconnectAllSockets = async () => {
+      await Promise.all([
+        new Promise((resolve, reject) =>
+          organizerSocket.on('disconnect', resolve)
+        ),
+        new Promise((resolve, reject) =>
+          participant1Socket.on('disconnect', resolve)
+        ),
+        new Promise((resolve, reject) =>
+          participant2Socket.on('disconnect', resolve)
+        ),
+        new Promise((resolve, reject) =>
+          otherSessionParticipantSocket.on('disconnect', resolve)
+        ),
+      ]);
     };
 
     describe('to breaked live session', () => {
-      beforeEach((done) => {
-        connectSockets(breakedLiveSession.id, done);
+      beforeEach(async () => {
+        await connectSockets(breakedLiveSession.id);
       });
 
-      afterEach(() => {
-        disconnectAllSockets();
+      afterEach(async () => {
+        await disconnectAllSockets();
       });
 
       test('Response_200_Organizer_Broadcast', (done) => {
@@ -288,7 +300,7 @@ describe('Chat Handler', () => {
         // 다른 세션의 참여자는 breakedLiveSession2에 연결된 상태로 유지
         organizerSocket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
+            `/${openedLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
@@ -296,7 +308,7 @@ describe('Chat Handler', () => {
 
         participant1Socket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
+            `/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant1.id.toString() },
           }
@@ -304,7 +316,7 @@ describe('Chat Handler', () => {
 
         participant2Socket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
+            `/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant2.id.toString() },
           }
@@ -313,7 +325,7 @@ describe('Chat Handler', () => {
         // otherSessionParticipantSocket는 breakedLiveSession2에 계속 연결
         otherSessionParticipantSocket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${breakedLiveSession2.id}?role=${Role.participant}`,
+            `/${breakedLiveSession2.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: otherSessionParticipant.id.toString() },
           }

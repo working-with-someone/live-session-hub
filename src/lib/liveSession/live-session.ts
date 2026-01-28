@@ -7,8 +7,10 @@ import { getNameSpace, getSocketIoServer } from '../../socket.io';
 import liveSessionPool from './pool';
 import {
   liveSessionBreakHeap,
+  liveSessionBreakScheduler,
   liveSessionOpenHeap,
 } from './schedular/open-break-schedular';
+import ffmpegProcessPool from '../ffmpeg/ffmpegProcessPool';
 
 export class LiveSession implements LiveSessionWithAll {
   id: string;
@@ -182,6 +184,7 @@ export class OrganizerLiveSession extends LiveSession {
   constructor(data: LiveSessionWithAll) {
     super(data);
     this.nsp = getNameSpace(data.id);
+    this.lastActivity = new Date();
   }
 
   static async create(liveSessionId: string): Promise<OrganizerLiveSession> {
@@ -240,6 +243,16 @@ export class OrganizerLiveSession extends LiveSession {
       throw new Error(`Live session cannot be opened from ${this.status} `);
     }
 
+    // start기록이 없는 첫 open or break라면, started_at을 기록한다.
+    if (!this.started_at) {
+      await this.start();
+    }
+
+    // breawk time이 설정되어있다면, break를 schedule한다.
+    if (this.break_time) {
+      liveSessionBreakScheduler.add(this.id);
+    }
+
     await prismaClient.live_session.update({
       where: { id: this.id },
       data: { status: $Enums.live_session_status.OPENED },
@@ -252,6 +265,16 @@ export class OrganizerLiveSession extends LiveSession {
   async break() {
     if (!this.isBreakable()) {
       throw new Error(`Live session cannot be breaked from ${this.status} `);
+    }
+
+    // start기록이 없는 첫 open or break라면, started_at을 기록한다.
+    if (!this.started_at) {
+      await this.start();
+    }
+
+    // breawk time이 설정되어있다면, open을 schedule한다.
+    if (this.break_time) {
+      liveSessionBreakScheduler.add(this.id);
     }
 
     await prismaClient.live_session.update({
@@ -275,7 +298,9 @@ export class OrganizerLiveSession extends LiveSession {
 
     liveSessionPool.remove(this.id);
     liveSessionOpenHeap.remove(this.id);
+    ffmpegProcessPool.terminateProcess(this.id);
     liveSessionBreakHeap.remove(this.id);
+    ffmpegProcessPool.terminateProcess(this.id);
   }
 
   async notifyUpdate(field: LiveSessionField) {

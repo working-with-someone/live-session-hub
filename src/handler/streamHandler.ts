@@ -17,11 +17,6 @@ const registerStreamHandler = (
       });
     }
 
-    // media push가 이루어지고있다면, live session pool에 올라가야한다.
-    if (!liveSessionPool.has(socket.liveSession.id)) {
-      await liveSessionPool.add(socket.liveSession);
-    }
-
     socket.ffmpegProcess.stdin.write(Buffer.from(fileBuffer));
 
     await socket.liveSession.touch();

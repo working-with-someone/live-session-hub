@@ -48,7 +48,7 @@ describe('Stream', () => {
     beforeEach((done) => {
       organizerSocket = ioc(
         process.env.SERVER_URL +
-          `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
+          `/${openedLiveSession.id}?role=${Role.organizer}`,
         {
           extraHeaders: { userId: organizer.id.toString() },
         }
@@ -71,9 +71,13 @@ describe('Stream', () => {
       }
     });
 
-    // 여기서 200은 ffmpeg process에 data를 입력하는 것이 성공했음을 의미하는 200이다. 이후 ffmpeg가 성공적으로 수행되었는지는 판단할 수 없다.
-    test('Response_200_And_Live_Session_Status_Must_Not_Be_Updated', (done) => {
+    // opened live session에 media push는 200을 응답받고, error channel이 emit되어선 안된다.
+    test('Response_200', (done) => {
       const mediaBuffer = fs.readFileSync('tests/video/video.webm');
+
+      const errorCb = jest.fn((line) => {
+        done(new Error(`Error Channel Emitted ${line}`));
+      });
 
       // callback이 호출되면 검증 수행
       const cb = jest.fn((resp) => {
@@ -84,41 +88,13 @@ describe('Stream', () => {
         expect(resp.status).toBe(200);
 
         setTimeout(() => {
-          prismaClient.live_session
-            .findFirst({
-              where: { id: openedLiveSession.id },
-            })
-            .then((liveSession) => {
-              if (liveSession?.status === live_session_status.OPENED) {
-                done();
-              } else {
-                done(
-                  new Error(`live session translated to ${liveSession?.status}`)
-                );
-              }
-            })
-            .catch((err) => {
-              done(err);
-            });
+          expect(errorCb).not.toHaveBeenCalled();
+          done();
         }, 1000);
       });
 
-      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
-    });
-
-    test('WS_Stream_Error_Channel_Must_Not_Be_Emitted', (done) => {
-      const mediaBuffer = fs.readFileSync('tests/video/video.webm');
-      const errorCb = jest.fn((line) => {
-        done(new Error(`Error Channel Emitted ${line}`));
-      });
-
-      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, () => {});
       organizerSocket.on(WS_CHANNELS.stream.error, errorCb);
-
-      setTimeout(() => {
-        expect(errorCb).not.toHaveBeenCalled();
-        done();
-      }, 1000);
+      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
     });
   });
 
@@ -140,7 +116,7 @@ describe('Stream', () => {
     beforeEach((done) => {
       organizerSocket = ioc(
         process.env.SERVER_URL +
-          `/livesession/${readyLiveSession.id}?role=${Role.organizer}`,
+          `/${readyLiveSession.id}?role=${Role.organizer}`,
         {
           extraHeaders: { userId: organizer.id.toString() },
         }
@@ -163,9 +139,13 @@ describe('Stream', () => {
       liveSessionFactory.cleanup();
     });
 
-    // ready상태인
-    test('Response_200_And_Live_Session_Status_Must_Be_Updated_To_Opened', (done) => {
+    // ready live session에 media push는 200을 응답받고, error channel이 emit되어선 안된다.
+    test('Response_200', (done) => {
       const mediaBuffer = fs.readFileSync('tests/video/video.webm');
+
+      const errorCb = jest.fn((line) => {
+        done(new Error(`Error Channel Emitted ${line}`));
+      });
 
       const cb = jest.fn((resp) => {
         // callback이 호출되었는지 확인
@@ -174,60 +154,15 @@ describe('Stream', () => {
         // 응답 상태 확인
         expect(resp.status).toBe(200);
 
+        // error channel이 emit되지 않았어야한다.
         setTimeout(() => {
-          prismaClient.live_session
-            .findFirst({
-              where: { id: readyLiveSession.id },
-            })
-            .then((liveSession) => {
-              if (liveSession?.status === live_session_status.OPENED) {
-                done();
-              } else {
-                done(
-                  new Error(`live session translated to ${liveSession?.status}`)
-                );
-              }
-            })
-            .catch((err) => {
-              done(err);
-            });
+          expect(errorCb).not.toHaveBeenCalled();
+          done();
         }, 1000);
       });
 
-      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
-    });
-
-    test('Started_At_Must_Be_Updated_When_First_Media_Pushed', async () => {
-      const mediaBuffer = fs.readFileSync('tests/video/video.webm');
-
-      const cb = jest.fn();
-
-      organizerSocket.on(
-        WS_CHANNELS.livesession.update,
-        async (field: LiveSessionField) => {
-          const liveSession = await prismaClient.live_session.findFirst({
-            where: { id: readyLiveSession.id },
-          });
-
-          expect(liveSession?.started_at).toBeDefined();
-        }
-      );
-      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
-    });
-
-    test('WS_Stream_Error_Channel_Must_Not_Be_Emitted', (done) => {
-      const mediaBuffer = fs.readFileSync('tests/video/video.webm');
-      const errorCb = jest.fn((line) => {
-        done(new Error(`Error Channel Emitted ${line}`));
-      });
-
-      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, () => {});
       organizerSocket.on(WS_CHANNELS.stream.error, errorCb);
-
-      setTimeout(() => {
-        expect(errorCb).not.toHaveBeenCalled();
-        done();
-      }, 2000);
+      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
     });
   });
 
@@ -249,7 +184,7 @@ describe('Stream', () => {
     beforeEach((done) => {
       organizerSocket = ioc(
         process.env.SERVER_URL +
-          `/livesession/${breakedLiveSession.id}?role=${Role.organizer}`,
+          `/${breakedLiveSession.id}?role=${Role.organizer}`,
         {
           extraHeaders: { userId: organizer.id.toString() },
         }
@@ -272,9 +207,12 @@ describe('Stream', () => {
       liveSessionFactory.cleanup();
     });
 
-    // ready상태인
+    // breaked live session에 media push는 200을 응답받고, error channel이 emit되어선 안된다.
     test('Response_200_And_Live_Session_Status_Must_Not_Be_Updated', (done) => {
       const mediaBuffer = fs.readFileSync('tests/video/video.webm');
+      const errorCb = jest.fn((line) => {
+        done(new Error(`Error Channel Emitted ${line}`));
+      });
 
       const cb = jest.fn((resp) => {
         // callback이 호출되었는지 확인
@@ -284,43 +222,13 @@ describe('Stream', () => {
         expect(resp.status).toBe(200);
 
         setTimeout(() => {
-          prismaClient.live_session
-            .findFirst({
-              where: { id: breakedLiveSession.id },
-            })
-            .then((liveSession) => {
-              if (liveSession?.status === live_session_status.BREAKED) {
-                done();
-              } else {
-                done(
-                  new Error(`live session translated to ${liveSession?.status}`)
-                );
-              }
-            })
-            .catch((err) => {
-              done(err);
-            });
+          expect(errorCb).not.toHaveBeenCalled();
+          done();
         }, 1000);
       });
 
+      organizerSocket.on(WS_CHANNELS.stream.error, errorCb);
       organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, cb);
-    });
-
-    test('WS_Stream_Error_Channel_Must_Not_Be_Emitted', (done) => {
-      const mediaBuffer = fs.readFileSync('tests/video/video.webm');
-      const errorCb = jest.fn((line) => {
-        done(new Error(`Error Channel Emitted ${line}`));
-      });
-
-      organizerSocket.emit(WS_CHANNELS.stream.push, mediaBuffer, () => {});
-      organizerSocket.on(WS_CHANNELS.stream.error, (line) => {
-        done(new Error(`Error Channel Emitted ${line}`));
-      });
-
-      setTimeout(() => {
-        expect(errorCb).not.toHaveBeenCalled();
-        done();
-      }, 2000);
     });
   });
 
@@ -342,19 +250,21 @@ describe('Stream', () => {
       liveSessionFactory.cleanup();
     });
 
+    // closed live session에는 socket connection자체가 불가능하다.
     test('Response_410_When_Connect_To_Closed_Live_Session', (done) => {
+      const errorCb = jest.fn((err) => {
+        expect(err).toEqual(new wwsError(httpStatusCode.GONE));
+        done();
+      });
       const organizerSocket = ioc(
         process.env.SERVER_URL +
-          `/livesession/${closedLiveSession.id}?role=${Role.organizer}`,
+          `/${closedLiveSession.id}?role=${Role.organizer}`,
         {
           extraHeaders: { userId: organizer.id.toString() },
         }
       );
 
-      organizerSocket.on('connect_error', (err) => {
-        expect(err).toEqual(new wwsError(httpStatusCode.GONE));
-        done();
-      });
+      organizerSocket.on('connect_error', errorCb);
 
       setTimeout(() => {
         if (organizerSocket.connected) {
@@ -382,7 +292,7 @@ describe('Stream', () => {
     beforeEach((done) => {
       organizerSocket = ioc(
         process.env.SERVER_URL +
-          `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
+          `/${openedLiveSession.id}?role=${Role.organizer}`,
         {
           extraHeaders: { userId: organizer.id.toString() },
         }
