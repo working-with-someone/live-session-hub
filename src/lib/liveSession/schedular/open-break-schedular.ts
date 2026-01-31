@@ -29,7 +29,7 @@ class LiveSessionOpenScheduler extends LiveSessionScheduler {
   constructor() {
     const config = liveSessionBreakScheduleConfig;
 
-    const task = cron.createTask(config.intervalCronEx, () => {
+    const task = cron.createTask(config.intervalCronEx, async () => {
       while (liveSessionOpenHeap.length > 0) {
         const peekedId = liveSessionOpenHeap.peek();
 
@@ -48,9 +48,7 @@ class LiveSessionOpenScheduler extends LiveSessionScheduler {
 
         liveSessionOpenHeap.pop();
 
-        liveSession.open().then(() => {
-          liveSessionBreakScheduler.add(liveSession.id);
-        });
+        await liveSession.open();
       }
     });
 
@@ -87,7 +85,7 @@ class LiveSessionBreakScheduler extends LiveSessionScheduler {
   constructor() {
     const config = liveSessionBreakScheduleConfig;
 
-    const task = cron.createTask(config.intervalCronEx, () => {
+    const task = cron.createTask(config.intervalCronEx, async () => {
       while (liveSessionBreakHeap.length > 0) {
         const liveSessionId = liveSessionBreakHeap.peek();
 
@@ -106,9 +104,7 @@ class LiveSessionBreakScheduler extends LiveSessionScheduler {
         }
         liveSessionBreakHeap.pop();
 
-        liveSession.break().then(() => {
-          liveSessionOpenScheduler.add(liveSession.id);
-        });
+        await liveSession.break();
       }
     });
 
