@@ -1,4 +1,4 @@
-import { ExtendedError, Socket } from 'socket.io';
+import { ExtendedError, Socket, socketWithLiveSession } from 'socket.io';
 import prismaClient from '../../../database/clients/prisma';
 import { wwsError } from '../../../error/wwsError';
 import httpStatusCode from 'http-status-codes';
@@ -11,6 +11,7 @@ import {
 import ffmpegParser from '../../../utils/ffmpeg-parser';
 import WS_CHANNELS from '../../../constants/channels';
 import { live_session_status } from '@prisma/client';
+import liveSessionPool from '../../../lib/liveSession/pool';
 
 export const attachLiveSessionRoleOrNotFound = async (
   socket: Socket,
@@ -90,22 +91,34 @@ const attachFfmpegProcessToOrganizer = async (
 ) => {
   // organizer일 경우에만
   if (socket.role === Role.organizer) {
-    const process = ffmpegProcessPool.getOrCreateProcess(socket.liveSession.id);
+    const organizerSocket =
+      socket as socketWithLiveSession<OrganizerLiveSession>;
+
+    const process = ffmpegProcessPool.getOrCreateProcess(
+      organizerSocket.liveSession.id
+    );
 
     process.stderr.on('data', (output) => {
       ffmpegParser.processFfmpegOutput(output.toString(), {
         onError: (line) => {
-          socket.emit(WS_CHANNELS.stream.error, line);
+          organizerSocket.emit(WS_CHANNELS.stream.error, line);
         },
         // onProgress, onSuccess는 확실하게 판단할 수 없다고 생각. 아직 사용 x
       });
     });
 
-    socket.ffmpegProcess = process;
+    organizerSocket.ffmpegProcess = process;
+  }
 
-    socket.on('disconnect', () => {
-      ffmpegProcessPool.terminateProcess(socket.liveSession.id);
-    });
+  next();
+};
+
+const registerLiveSessionOnOrganizerConnection = async (
+  socket: Socket,
+  next: (err?: ExtendedError) => void
+) => {
+  if (socket.role === Role.organizer) {
+    await liveSessionPool.add(socket.liveSession as OrganizerLiveSession);
   }
 
   next();
@@ -115,6 +128,7 @@ const liveSessionMiddleware = {
   attachLiveSessionRoleOrNotFound,
   attachLiveSession,
   attachFfmpegProcessToOrganizer,
+  registerLiveSessionOnOrganizerConnection,
 };
 
 export default liveSessionMiddleware;
