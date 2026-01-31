@@ -11,7 +11,10 @@ import { live_session_status } from '@prisma/client';
 import httpStatusCode from 'http-status-codes';
 import liveSessionFactory from '../factories/live-session-factory';
 import { Role } from '../../src/enums/session';
-import { ResponseCb } from '../../src/@types/augmentation/socket/response';
+import {
+  ResponseCb,
+  SocketResponse,
+} from '../../src/@types/augmentation/socket/response';
 import {
   LiveSessionField,
   LiveSessionWithAll,
@@ -81,7 +84,7 @@ describe('Transition Handler', () => {
       beforeEach((done) => {
         organizerSocket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${readyLiveSession.id}?role=${Role.organizer}`,
+            `/${readyLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
@@ -89,7 +92,7 @@ describe('Transition Handler', () => {
 
         participant1Socket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${readyLiveSession.id}?role=${Role.participant}`,
+            `/${readyLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant1.id.toString() },
           }
@@ -97,7 +100,7 @@ describe('Transition Handler', () => {
 
         participant2Socket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${readyLiveSession.id}?role=${Role.participant}`,
+            `/${readyLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant2.id.toString() },
           }
@@ -105,7 +108,7 @@ describe('Transition Handler', () => {
 
         otherSessionParticipantSocket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${otherLiveSession.id}?role=${Role.participant}`,
+            `/${otherLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: otherSessionParticipant.id.toString() },
           }
@@ -126,196 +129,174 @@ describe('Transition Handler', () => {
         otherSessionParticipantSocket.on('connect', onConnect);
       });
 
-      afterEach(() => {
-        liveSessionFactory.cleanup();
-        organizerSocket.disconnect();
-        participant1Socket.disconnect();
-        participant2Socket.disconnect();
-        otherSessionParticipantSocket.disconnect();
+      afterEach(async () => {
+        await Promise.all([
+          new Promise((resolve) => {
+            organizerSocket.on('disconnect', resolve);
+            organizerSocket.disconnect();
+          }),
+          new Promise((resolve) => {
+            participant1Socket.on('disconnect', resolve);
+            participant1Socket.disconnect();
+          }),
+          new Promise((resolve) => {
+            participant2Socket.on('disconnect', resolve);
+            participant2Socket.disconnect();
+          }),
+          new Promise((resolve) => {
+            otherSessionParticipantSocket.on('disconnect', resolve);
+            otherSessionParticipantSocket.disconnect();
+          }),
+        ]);
+
+        await liveSessionFactory.cleanup();
       });
 
-      test('Ready => Ready Must_Response_With_400', (done) => {
-        const otherLiveSessionParticipantTransitionListener = jest.fn();
-
-        const transitionCb: ResponseCb = async ({ status }) => {
-          expect(status).toEqual(400);
-          const _readyLiveSEssion = await prismaClient.live_session.findFirst({
-            where: { id: readyLiveSession.id },
-          });
-
-          expect(_readyLiveSEssion).toBeDefined();
-          expect(_readyLiveSEssion!.status).toEqual(live_session_status.READY);
-
-          done();
-        };
-
-        organizerSocket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
-        participant1Socket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
-        participant2Socket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
-
-        otherSessionParticipantSocket.on(
-          WS_CHANNELS.transition.broadCast.ready,
-          otherLiveSessionParticipantTransitionListener
+      test('Ready => Ready Must_Response_With_400', async () => {
+        const res = await new Promise<{ status: number; message?: string }>(
+          (resolve) =>
+            organizerSocket.emit(WS_CHANNELS.transition.ready, (r: any) =>
+              resolve(r)
+            )
         );
 
-        organizerSocket.emit(WS_CHANNELS.transition.ready, transitionCb);
+        expect(res.status).toEqual(400);
+
+        const _readyLiveSEssion = await prismaClient.live_session.findFirst({
+          where: { id: readyLiveSession.id },
+        });
+
+        // status 또한 update되지 않았어야한다.
+        expect(_readyLiveSEssion).toBeDefined();
+        expect(_readyLiveSEssion!.status).toEqual(live_session_status.READY);
       });
 
-      test('Ready => Opened Must_Response_With_200', (done) => {
-        let receivedCount = 0;
-        const expectedReceiveCount = 3;
-        const transitionCb = jest.fn();
-
-        const otherLiveSessionParticipantTransitionListener = jest.fn();
-
-        const checkComplete = async () => {
-          receivedCount++;
-          if (receivedCount === expectedReceiveCount) {
-            expect(transitionCb).toHaveBeenCalled();
-            expect(transitionCb.mock.calls[0][0].status).toEqual(
-              httpStatusCode.OK
-            );
-
-            expect(receivedCount).toEqual(expectedReceiveCount);
-
-            expect(
-              otherLiveSessionParticipantTransitionListener
-            ).not.toHaveBeenCalled();
-
-            const _readyLiveSession = await prismaClient.live_session.findFirst(
-              {
-                where: { id: readyLiveSession.id },
-                include: {
-                  live_session_transition_log: true,
-                },
-              }
-            );
-            expect(_readyLiveSession).toBeDefined();
-            expect(_readyLiveSession!.status).toEqual(
-              live_session_status.OPENED
-            );
-
-            expect(
-              _readyLiveSession?.live_session_transition_log
-            ).toBeDefined();
-            expect(_readyLiveSession!.live_session_transition_log).toHaveLength(
-              1
-            );
-            expect(
-              _readyLiveSession!.live_session_transition_log[0].from_state
-            ).toEqual(live_session_status.READY);
-            expect(
-              _readyLiveSession!.live_session_transition_log[0].to_state
-            ).toEqual(live_session_status.OPENED);
-
-            done();
-          }
+      test('Ready => Opened Must_Response_With_200', async () => {
+        const otherLiveSessionParticipantTransitionListener = () => {
+          throw new Error('other live session  ');
         };
-
-        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
-
-        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
-
-        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
         otherSessionParticipantSocket.on(
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
 
-        organizerSocket.emit(WS_CHANNELS.transition.open, transitionCb);
-      });
+        const waitForUpdate = (socket: ClientSocket) =>
+          new Promise<LiveSessionField>((resolve) =>
+            socket.once(
+              WS_CHANNELS.livesession.update,
+              (field: LiveSessionField) => resolve(field)
+            )
+          );
 
-      test('Ready => Breaked Must_Response_With_400', (done) => {
-        const otherLiveSessionParticipantTransitionListener = jest.fn();
+        const organizerConnectionPromise = waitForUpdate(organizerSocket);
+        const participant1ConnectionPromise = waitForUpdate(participant1Socket);
+        const participant2ConnectionPromise = waitForUpdate(participant2Socket);
 
-        const transitionCb: ResponseCb = async ({ status }) => {
-          expect(status).toEqual(400);
-          const _readyLiveSEssion = await prismaClient.live_session.findFirst({
-            where: { id: readyLiveSession.id },
-          });
-
-          expect(_readyLiveSEssion).toBeDefined();
-          expect(_readyLiveSEssion!.status).toEqual(live_session_status.READY);
-
-          done();
-        };
-
-        organizerSocket.on(WS_CHANNELS.transition.broadCast.break, () => {});
-        participant1Socket.on(WS_CHANNELS.transition.broadCast.break, () => {});
-        participant2Socket.on(WS_CHANNELS.transition.broadCast.break, () => {});
-
-        otherSessionParticipantSocket.on(
-          WS_CHANNELS.transition.broadCast.break,
-          otherLiveSessionParticipantTransitionListener
+        const organizerCallback = new Promise<SocketResponse>((resolve) =>
+          organizerSocket.emit(WS_CHANNELS.transition.open, (res: any) => {
+            expect(res.status).toEqual(httpStatusCode.OK);
+            resolve(res);
+          })
         );
 
-        organizerSocket.emit(WS_CHANNELS.transition.break, transitionCb);
+        await Promise.all([
+          organizerConnectionPromise,
+          participant1ConnectionPromise,
+          participant2ConnectionPromise,
+          organizerCallback,
+        ]);
+
+        const _readyLiveSession = await prismaClient.live_session.findFirst({
+          where: { id: readyLiveSession.id },
+          include: { live_session_transition_log: true },
+        });
+
+        expect(_readyLiveSession).toBeDefined();
+        expect(_readyLiveSession!.status).toEqual(live_session_status.OPENED);
+
+        expect(_readyLiveSession?.live_session_transition_log).toBeDefined();
+        expect(_readyLiveSession!.live_session_transition_log).toHaveLength(1);
+        expect(
+          _readyLiveSession!.live_session_transition_log[0].from_state
+        ).toEqual(live_session_status.READY);
+        expect(
+          _readyLiveSession!.live_session_transition_log[0].to_state
+        ).toEqual(live_session_status.OPENED);
       });
 
-      test('Ready => Closed Must_Response_With_200', (done) => {
-        let receivedCount = 0;
-        const expectedReceiveCount = 3;
-        const transitionCb = jest.fn();
+      test('Ready => Breaked Must_Response_With_400', async () => {
+        const res = await new Promise<SocketResponse>((resolve) =>
+          organizerSocket.emit(WS_CHANNELS.transition.break, (r: any) =>
+            resolve(r)
+          )
+        );
 
-        const otherLiveSessionParticipantTransitionListener = jest.fn();
+        expect(res.status).toEqual(400);
 
-        const checkComplete = async () => {
-          receivedCount++;
-          if (receivedCount === expectedReceiveCount) {
-            expect(transitionCb).toHaveBeenCalled();
-            expect(transitionCb.mock.calls[0][0].status).toEqual(
-              httpStatusCode.OK
-            );
+        // status 또한 update되지 않았어야한다.
+        const _readyLiveSEssion = await prismaClient.live_session.findFirst({
+          where: { id: readyLiveSession.id },
+        });
 
-            expect(receivedCount).toEqual(expectedReceiveCount);
+        // status 또한 update되지 않았어야한다.
+        expect(_readyLiveSEssion).toBeDefined();
+        expect(_readyLiveSEssion!.status).toEqual(live_session_status.READY);
+      });
 
-            expect(
-              otherLiveSessionParticipantTransitionListener
-            ).not.toHaveBeenCalled();
-
-            const _readyLiveSession = await prismaClient.live_session.findFirst(
-              {
-                where: { id: readyLiveSession.id },
-                include: {
-                  live_session_transition_log: true,
-                },
-              }
-            );
-            expect(_readyLiveSession).toBeDefined();
-            expect(_readyLiveSession!.status).toEqual(
-              live_session_status.CLOSED
-            );
-
-            expect(
-              _readyLiveSession?.live_session_transition_log
-            ).toBeDefined();
-            expect(_readyLiveSession!.live_session_transition_log).toHaveLength(
-              1
-            );
-            expect(
-              _readyLiveSession!.live_session_transition_log[0].from_state
-            ).toEqual(live_session_status.READY);
-            expect(
-              _readyLiveSession!.live_session_transition_log[0].to_state
-            ).toEqual(live_session_status.CLOSED);
-
-            done();
-          }
+      test('Ready => Closed Must_Response_With_200', async () => {
+        const otherLiveSessionParticipantTransitionListener = () => {
+          throw new Error('other live session must not recive update notify');
         };
-
-        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
-
-        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
-
-        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
 
         otherSessionParticipantSocket.on(
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
 
-        organizerSocket.emit(WS_CHANNELS.transition.close, transitionCb);
+        const waitForUpdate = (socket: ClientSocket) =>
+          new Promise<LiveSessionField>((resolve) =>
+            socket.once(
+              WS_CHANNELS.livesession.update,
+              (field: LiveSessionField) => resolve(field)
+            )
+          );
+
+        const organizerConnectionPromise = waitForUpdate(organizerSocket);
+        const participant1ConnectionPromise = waitForUpdate(participant1Socket);
+        const participant2ConnectionPromise = waitForUpdate(participant2Socket);
+
+        const organizerCallback = new Promise<SocketResponse>((resolve) =>
+          organizerSocket.emit(WS_CHANNELS.transition.close, (res: any) => {
+            expect(res.status).toEqual(httpStatusCode.OK);
+            resolve(res);
+          })
+        );
+
+        await Promise.all([
+          organizerConnectionPromise,
+          participant1ConnectionPromise,
+          participant2ConnectionPromise,
+          organizerCallback,
+        ]);
+
+        const _readyLiveSession = await prismaClient.live_session.findFirst({
+          where: { id: readyLiveSession.id },
+          include: { live_session_transition_log: true },
+        });
+
+        expect(_readyLiveSession).toBeDefined();
+        expect(_readyLiveSession!.status).toEqual(live_session_status.CLOSED);
+
+        expect(_readyLiveSession?.live_session_transition_log).toBeDefined();
+        expect(_readyLiveSession!.live_session_transition_log).toHaveLength(1);
+        expect(
+          _readyLiveSession!.live_session_transition_log[0].from_state
+        ).toEqual(live_session_status.READY);
+
+        expect(
+          _readyLiveSession!.live_session_transition_log[0].to_state
+        ).toEqual(live_session_status.CLOSED);
       });
     });
 
@@ -344,7 +325,7 @@ describe('Transition Handler', () => {
       beforeEach((done) => {
         organizerSocket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
+            `/${openedLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
@@ -352,7 +333,7 @@ describe('Transition Handler', () => {
 
         participant1Socket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
+            `/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant1.id.toString() },
           }
@@ -360,7 +341,7 @@ describe('Transition Handler', () => {
 
         participant2Socket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
+            `/${openedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant2.id.toString() },
           }
@@ -368,7 +349,7 @@ describe('Transition Handler', () => {
 
         otherSessionParticipantSocket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${otherLiveSession.id}?role=${Role.participant}`,
+            `/${otherLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: otherSessionParticipant.id.toString() },
           }
@@ -390,162 +371,170 @@ describe('Transition Handler', () => {
       });
 
       afterEach(async () => {
+        await Promise.all([
+          new Promise((resolve) => {
+            organizerSocket.on('disconnect', resolve);
+            organizerSocket.disconnect();
+          }),
+          new Promise((resolve) => {
+            participant1Socket.on('disconnect', resolve);
+            participant1Socket.disconnect();
+          }),
+          new Promise((resolve) => {
+            participant2Socket.on('disconnect', resolve);
+            participant2Socket.disconnect();
+          }),
+          new Promise((resolve) => {
+            otherSessionParticipantSocket.on('disconnect', resolve);
+            otherSessionParticipantSocket.disconnect();
+          }),
+        ]);
+
         await liveSessionFactory.cleanup();
-
-        organizerSocket.disconnect();
-        participant1Socket.disconnect();
-        participant2Socket.disconnect();
-        otherSessionParticipantSocket.disconnect();
       });
 
-      test('Opened => Ready Must_Response_With_400', (done) => {
-        const transitionCb: ResponseCb = async ({ status }) => {
-          expect(status).toEqual(400);
-          const _openedLiveSession = await prismaClient.live_session.findFirst({
-            where: { id: openedLiveSession.id },
-          });
+      test('Opened => Ready Must_Response_With_400', async () => {
+        const res = await new Promise<SocketResponse>((resolve) =>
+          organizerSocket.emit(WS_CHANNELS.transition.ready, (r: any) =>
+            resolve(r)
+          )
+        );
 
-          expect(_openedLiveSession).toBeDefined();
-          expect(_openedLiveSession!.status).toEqual(
-            live_session_status.OPENED
-          );
+        expect(res.status).toEqual(400);
 
-          done();
-        };
+        const _openedLiveSession = await prismaClient.live_session.findFirst({
+          where: { id: openedLiveSession.id },
+        });
 
-        organizerSocket.emit(WS_CHANNELS.transition.ready, transitionCb);
+        expect(_openedLiveSession).toBeDefined();
+        expect(_openedLiveSession!.status).toEqual(live_session_status.OPENED);
       });
 
-      test('Opened => Opened Must_Response_With_400', (done) => {
-        const transitionCb: ResponseCb = async ({ status }) => {
-          expect(status).toEqual(400);
+      test('Opened => Opened Must_Response_With_400', async () => {
+        const res = await new Promise<{ status: number; message?: string }>(
+          (resolve) =>
+            organizerSocket.emit(WS_CHANNELS.transition.open, (r: any) =>
+              resolve(r)
+            )
+        );
 
-          const _openedLiveSession = await prismaClient.live_session.findFirst({
-            where: { id: openedLiveSession.id },
-          });
+        expect(res.status).toEqual(400);
 
-          expect(_openedLiveSession).toBeDefined();
-          expect(_openedLiveSession!.status).toEqual(
-            live_session_status.OPENED
-          );
+        const _openedLiveSession = await prismaClient.live_session.findFirst({
+          where: { id: openedLiveSession.id },
+        });
 
-          done();
-        };
-        organizerSocket.emit(WS_CHANNELS.transition.open, transitionCb);
+        // status 또한 update되지 않았어야한다.
+        expect(_openedLiveSession).toBeDefined();
+        expect(_openedLiveSession!.status).toEqual(live_session_status.OPENED);
       });
 
-      test('Opened => Breaked Must_Response_With_200', (done) => {
-        let receivedCount = 0;
-        const expectedReceiveCount = 3;
-        const transitionCb = jest.fn();
-        const otherLiveSessionParticipantTransitionListener = jest.fn();
+      test('Opened => Breaked Must_Response_With_200', async () => {
+        const otherLiveSessionParticipantTransitionListener = jest.fn(() => {
+          throw new Error('other live session');
+        });
 
-        const checkComplete = async (field: LiveSessionField) => {
-          if (field == 'status') {
-            receivedCount++;
-          }
-
-          if (receivedCount === expectedReceiveCount) {
-            expect(transitionCb).toHaveBeenCalled();
-            expect(transitionCb.mock.calls[0][0].status).toEqual(
-              httpStatusCode.OK
-            );
-            expect(receivedCount).toEqual(expectedReceiveCount);
-            expect(
-              otherLiveSessionParticipantTransitionListener
-            ).not.toHaveBeenCalled();
-            const _openedLiveSession =
-              await prismaClient.live_session.findFirst({
-                where: { id: openedLiveSession.id },
-                include: {
-                  live_session_transition_log: true,
-                },
-              });
-            expect(_openedLiveSession).toBeDefined();
-            expect(_openedLiveSession!.status).toEqual(
-              live_session_status.BREAKED
-            );
-
-            expect(
-              _openedLiveSession?.live_session_transition_log
-            ).toBeDefined();
-            expect(
-              _openedLiveSession!.live_session_transition_log
-            ).toHaveLength(1);
-            expect(
-              _openedLiveSession!.live_session_transition_log[0].from_state
-            ).toEqual(live_session_status.OPENED);
-            expect(
-              _openedLiveSession!.live_session_transition_log[0].to_state
-            ).toEqual(live_session_status.BREAKED);
-
-            done();
-          }
-        };
-
-        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
-        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
-        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
         otherSessionParticipantSocket.on(
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
-        organizerSocket.emit(WS_CHANNELS.transition.break, transitionCb);
+
+        const waitForUpdate = (socket: ClientSocket) =>
+          new Promise<LiveSessionField>((resolve) =>
+            socket.once(
+              WS_CHANNELS.livesession.update,
+              (field: LiveSessionField) => resolve(field)
+            )
+          );
+
+        const organizerConnectionPromise = waitForUpdate(organizerSocket);
+        const participant1ConnectionPromise = waitForUpdate(participant1Socket);
+        const participant2ConnectionPromise = waitForUpdate(participant2Socket);
+
+        const organizerAckPromise = new Promise<SocketResponse>((resolve) =>
+          organizerSocket.emit(WS_CHANNELS.transition.break, (res: any) => {
+            expect(res.status).toEqual(httpStatusCode.OK);
+            resolve(res);
+          })
+        );
+
+        await Promise.all([
+          organizerConnectionPromise,
+          participant1ConnectionPromise,
+          participant2ConnectionPromise,
+          organizerAckPromise,
+        ]);
+
+        const _openedLiveSession = await prismaClient.live_session.findFirst({
+          where: { id: openedLiveSession.id },
+          include: { live_session_transition_log: true },
+        });
+
+        expect(_openedLiveSession).toBeDefined();
+        expect(_openedLiveSession!.status).toEqual(live_session_status.BREAKED);
+
+        expect(_openedLiveSession?.live_session_transition_log).toBeDefined();
+        expect(_openedLiveSession!.live_session_transition_log).toHaveLength(1);
+        expect(
+          _openedLiveSession!.live_session_transition_log[0].from_state
+        ).toEqual(live_session_status.OPENED);
+        expect(
+          _openedLiveSession!.live_session_transition_log[0].to_state
+        ).toEqual(live_session_status.BREAKED);
       });
 
-      test('Opened => Closed Must_Response_With_200', (done) => {
-        let receivedCount = 0;
-        const expectedReceiveCount = 3;
-        const transitionCb = jest.fn();
-        const otherLiveSessionParticipantTransitionListener = jest.fn();
-        const checkComplete = async () => {
-          receivedCount++;
-          if (receivedCount === expectedReceiveCount) {
-            expect(transitionCb).toHaveBeenCalled();
-            expect(transitionCb.mock.calls[0][0].status).toEqual(
-              httpStatusCode.OK
-            );
-            expect(receivedCount).toEqual(expectedReceiveCount);
-            expect(
-              otherLiveSessionParticipantTransitionListener
-            ).not.toHaveBeenCalled();
-            const _openedLiveSession =
-              await prismaClient.live_session.findFirst({
-                where: { id: openedLiveSession.id },
-                include: {
-                  live_session_transition_log: true,
-                },
-              });
-            expect(_openedLiveSession).toBeDefined();
-            expect(_openedLiveSession!.status).toEqual(
-              live_session_status.CLOSED
-            );
+      test('Opened => Closed Must_Response_With_200', async () => {
+        const otherLiveSessionParticipantTransitionListener = jest.fn(() => {
+          throw new Error('other live session');
+        });
 
-            expect(
-              _openedLiveSession?.live_session_transition_log
-            ).toBeDefined();
-            expect(
-              _openedLiveSession!.live_session_transition_log
-            ).toHaveLength(1);
-            expect(
-              _openedLiveSession!.live_session_transition_log[0].from_state
-            ).toEqual(live_session_status.OPENED);
-            expect(
-              _openedLiveSession!.live_session_transition_log[0].to_state
-            ).toEqual(live_session_status.CLOSED);
-
-            done();
-          }
-        };
-
-        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
-        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
-        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
         otherSessionParticipantSocket.on(
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
-        organizerSocket.emit(WS_CHANNELS.transition.close, transitionCb);
+
+        const waitForUpdate = (socket: ClientSocket) =>
+          new Promise<LiveSessionField>((resolve) =>
+            socket.once(
+              WS_CHANNELS.livesession.update,
+              (field: LiveSessionField) => resolve(field)
+            )
+          );
+
+        const organizerConnectionPromise = waitForUpdate(organizerSocket);
+        const participant1ConnectionPromise = waitForUpdate(participant1Socket);
+        const participant2ConnectionPromise = waitForUpdate(participant2Socket);
+
+        const organizerCallback = new Promise<SocketResponse>((resolve) =>
+          organizerSocket.emit(WS_CHANNELS.transition.close, (res: any) => {
+            expect(res.status).toEqual(httpStatusCode.OK);
+            resolve(res);
+          })
+        );
+
+        await Promise.all([
+          organizerConnectionPromise,
+          participant1ConnectionPromise,
+          participant2ConnectionPromise,
+          organizerCallback,
+        ]);
+
+        const _openedLiveSession = await prismaClient.live_session.findFirst({
+          where: { id: openedLiveSession.id },
+          include: { live_session_transition_log: true },
+        });
+
+        expect(_openedLiveSession).toBeDefined();
+        expect(_openedLiveSession!.status).toEqual(live_session_status.CLOSED);
+
+        expect(_openedLiveSession?.live_session_transition_log).toBeDefined();
+        expect(_openedLiveSession!.live_session_transition_log).toHaveLength(1);
+        expect(
+          _openedLiveSession!.live_session_transition_log[0].from_state
+        ).toEqual(live_session_status.OPENED);
+        expect(
+          _openedLiveSession!.live_session_transition_log[0].to_state
+        ).toEqual(live_session_status.CLOSED);
       });
     });
 
@@ -574,7 +563,7 @@ describe('Transition Handler', () => {
       beforeEach((done) => {
         organizerSocket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${breakedLiveSession.id}?role=${Role.organizer}`,
+            `/${breakedLiveSession.id}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
@@ -582,7 +571,7 @@ describe('Transition Handler', () => {
 
         participant1Socket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${breakedLiveSession.id}?role=${Role.participant}`,
+            `/${breakedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant1.id.toString() },
           }
@@ -590,7 +579,7 @@ describe('Transition Handler', () => {
 
         participant2Socket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${breakedLiveSession.id}?role=${Role.participant}`,
+            `/${breakedLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: participant2.id.toString() },
           }
@@ -598,7 +587,7 @@ describe('Transition Handler', () => {
 
         otherSessionParticipantSocket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${otherLiveSession.id}?role=${Role.participant}`,
+            `/${otherLiveSession.id}?role=${Role.participant}`,
           {
             extraHeaders: { userId: otherSessionParticipant.id.toString() },
           }
@@ -619,188 +608,181 @@ describe('Transition Handler', () => {
         otherSessionParticipantSocket.on('connect', onConnect);
       });
 
-      afterEach(() => {
-        liveSessionFactory.cleanup();
+      afterEach(async () => {
+        await Promise.all([
+          new Promise((resolve) => {
+            organizerSocket.on('disconnect', resolve);
+            organizerSocket.disconnect();
+          }),
+          new Promise((resolve) => {
+            participant1Socket.on('disconnect', resolve);
+            participant1Socket.disconnect();
+          }),
+          new Promise((resolve) => {
+            participant2Socket.on('disconnect', resolve);
+            participant2Socket.disconnect();
+          }),
+          new Promise((resolve) => {
+            otherSessionParticipantSocket.on('disconnect', resolve);
+            otherSessionParticipantSocket.disconnect();
+          }),
+        ]);
 
-        organizerSocket.disconnect();
-        participant1Socket.disconnect();
-        participant2Socket.disconnect();
-        otherSessionParticipantSocket.disconnect();
+        await liveSessionFactory.cleanup();
       });
 
-      test('Breaked => Ready Must_Response_With_400', (done) => {
-        const otherLiveSessionParticipantTransitionListener = jest.fn();
-
-        const transitionCb: ResponseCb = async ({ status }) => {
-          expect(status).toEqual(400);
-          const _breakedLiveSession = await prismaClient.live_session.findFirst(
-            {
-              where: { id: breakedLiveSession.id },
-            }
-          );
-
-          expect(_breakedLiveSession).toBeDefined();
-          expect(_breakedLiveSession!.status).toEqual(
-            live_session_status.BREAKED
-          );
-
-          done();
-        };
-
-        organizerSocket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
-        participant1Socket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
-        participant2Socket.on(WS_CHANNELS.transition.broadCast.ready, () => {});
-
-        otherSessionParticipantSocket.on(
-          WS_CHANNELS.transition.broadCast.ready,
-          otherLiveSessionParticipantTransitionListener
+      test('Breaked => Ready Must_Response_With_400', async () => {
+        const res = await new Promise<{ status: number; message?: string }>(
+          (resolve) =>
+            organizerSocket.emit(WS_CHANNELS.transition.ready, (r: any) =>
+              resolve(r)
+            )
         );
 
-        organizerSocket.emit(WS_CHANNELS.transition.ready, transitionCb);
+        expect(res.status).toEqual(400);
+
+        const _breakedLiveSession = await prismaClient.live_session.findFirst({
+          where: { id: breakedLiveSession.id },
+        });
+
+        // status 또한 update되지 않았어야한다.
+        expect(_breakedLiveSession).toBeDefined();
+        expect(_breakedLiveSession!.status).toEqual(
+          live_session_status.BREAKED
+        );
       });
 
-      test('Breaked => Opened Must_Response_With_200', (done) => {
-        let receivedCount = 0;
-        const expectedReceiveCount = 3;
-        const transitionCb = jest.fn();
-        const otherLiveSessionParticipantTransitionListener = jest.fn();
-        const checkComplete = async () => {
-          receivedCount++;
-          if (receivedCount === expectedReceiveCount) {
-            expect(transitionCb).toHaveBeenCalled();
-            expect(transitionCb.mock.calls[0][0].status).toEqual(
-              httpStatusCode.OK
-            );
-
-            expect(receivedCount).toEqual(expectedReceiveCount);
-            expect(
-              otherLiveSessionParticipantTransitionListener
-            ).not.toHaveBeenCalled();
-
-            const _breakedLiveSession =
-              await prismaClient.live_session.findFirst({
-                where: { id: breakedLiveSession.id },
-                include: {
-                  live_session_transition_log: true,
-                },
-              });
-
-            expect(_breakedLiveSession).toBeDefined();
-            expect(_breakedLiveSession!.status).toEqual(
-              live_session_status.OPENED
-            );
-
-            expect(
-              _breakedLiveSession?.live_session_transition_log
-            ).toBeDefined();
-            expect(
-              _breakedLiveSession!.live_session_transition_log
-            ).toHaveLength(1);
-            expect(
-              _breakedLiveSession!.live_session_transition_log[0].from_state
-            ).toEqual(live_session_status.BREAKED);
-            expect(
-              _breakedLiveSession!.live_session_transition_log[0].to_state
-            ).toEqual(live_session_status.OPENED);
-
-            done();
-          }
-        };
-
-        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
-
-        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
-
-        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
+      test('Breaked => Opened Must_Response_With_200', async () => {
+        const otherLiveSessionParticipantTransitionListener = jest.fn(() => {
+          throw new Error('other live session');
+        });
 
         otherSessionParticipantSocket.on(
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
 
-        organizerSocket.emit(WS_CHANNELS.transition.open, transitionCb);
-      });
-
-      test('Breaked => Breaked Must_Response_With_400', (done) => {
-        const transitionCb: ResponseCb = async ({ status }) => {
-          expect(status).toEqual(400);
-
-          const _breakedLiveSession = await prismaClient.live_session.findFirst(
-            {
-              where: { id: breakedLiveSession.id },
-            }
+        const waitForUpdate = (socket: ClientSocket) =>
+          new Promise<LiveSessionField>((resolve) =>
+            socket.once(
+              WS_CHANNELS.livesession.update,
+              (field: LiveSessionField) => resolve(field)
+            )
           );
 
-          expect(_breakedLiveSession).toBeDefined();
-          expect(_breakedLiveSession!.status).toEqual(
-            live_session_status.BREAKED
-          );
+        const organizerConnectionPromise = waitForUpdate(organizerSocket);
+        const participant1ConnectionPromise = waitForUpdate(participant1Socket);
+        const participant2ConnectionPromise = waitForUpdate(participant2Socket);
 
-          organizerSocket.emit(WS_CHANNELS.transition.break, transitionCb);
-          done();
-        };
+        const organizerCallback = new Promise<SocketResponse>((resolve) =>
+          organizerSocket.emit(WS_CHANNELS.transition.open, (res: any) => {
+            expect(res.status).toEqual(httpStatusCode.OK);
+            resolve(res);
+          })
+        );
 
-        organizerSocket.emit(WS_CHANNELS.transition.break, transitionCb);
+        await Promise.all([
+          organizerConnectionPromise,
+          participant1ConnectionPromise,
+          participant2ConnectionPromise,
+          organizerCallback,
+        ]);
+
+        const _breakedLiveSession = await prismaClient.live_session.findFirst({
+          where: { id: breakedLiveSession.id },
+          include: { live_session_transition_log: true },
+        });
+
+        expect(_breakedLiveSession).toBeDefined();
+        expect(_breakedLiveSession!.status).toEqual(live_session_status.OPENED);
+
+        expect(_breakedLiveSession?.live_session_transition_log).toBeDefined();
+        expect(_breakedLiveSession!.live_session_transition_log).toHaveLength(
+          1
+        );
+        expect(
+          _breakedLiveSession!.live_session_transition_log[0].from_state
+        ).toEqual(live_session_status.BREAKED);
+        expect(
+          _breakedLiveSession!.live_session_transition_log[0].to_state
+        ).toEqual(live_session_status.OPENED);
       });
 
-      test('Breaked => Closed Must_Response_With_200', (done) => {
-        let receivedCount = 0;
-        const expectedReceiveCount = 3;
-        const transitionCb = jest.fn();
-        const otherLiveSessionParticipantTransitionListener = jest.fn();
-        const checkComplete = async (field: LiveSessionField) => {
-          if (field == 'status') {
-            receivedCount++;
-          }
+      test('Breaked => Breaked Must_Response_With_400', async () => {
+        const res = await new Promise<{ status: number; message?: string }>(
+          (resolve) =>
+            organizerSocket.emit(WS_CHANNELS.transition.break, (r: any) =>
+              resolve(r)
+            )
+        );
 
-          if (receivedCount === expectedReceiveCount) {
-            expect(transitionCb).toHaveBeenCalled();
+        expect(res.status).toEqual(400);
 
-            expect(transitionCb.mock.calls[0][0].status).toEqual(
-              httpStatusCode.OK
-            );
-            expect(receivedCount).toEqual(expectedReceiveCount);
-            expect(
-              otherLiveSessionParticipantTransitionListener
-            ).not.toHaveBeenCalled();
+        const _breakedLiveSession = await prismaClient.live_session.findFirst({
+          where: { id: breakedLiveSession.id },
+        });
 
-            const _breakedLiveSession =
-              await prismaClient.live_session.findFirst({
-                where: { id: breakedLiveSession.id },
-                include: {
-                  live_session_transition_log: true,
-                },
-              });
-            expect(_breakedLiveSession).toBeDefined();
-            expect(_breakedLiveSession!.status).toEqual(
-              live_session_status.CLOSED
-            );
+        // status 또한 update되지 않았어야한다.
+        expect(_breakedLiveSession).toBeDefined();
+        expect(_breakedLiveSession!.status).toEqual(
+          live_session_status.BREAKED
+        );
+      });
 
-            expect(
-              _breakedLiveSession?.live_session_transition_log
-            ).toBeDefined();
-            expect(
-              _breakedLiveSession!.live_session_transition_log
-            ).toHaveLength(1);
-            expect(
-              _breakedLiveSession!.live_session_transition_log[0].from_state
-            ).toEqual(live_session_status.BREAKED);
-            expect(
-              _breakedLiveSession!.live_session_transition_log[0].to_state
-            ).toEqual(live_session_status.CLOSED);
+      test('Breaked => Closed Must_Response_With_200', async () => {
+        const otherLiveSessionParticipantTransitionListener = jest.fn(() => {
+          throw new Error('other live session');
+        });
 
-            done();
-          }
-        };
-
-        organizerSocket.on(WS_CHANNELS.livesession.update, checkComplete);
-        participant1Socket.on(WS_CHANNELS.livesession.update, checkComplete);
-        participant2Socket.on(WS_CHANNELS.livesession.update, checkComplete);
         otherSessionParticipantSocket.on(
           WS_CHANNELS.livesession.update,
           otherLiveSessionParticipantTransitionListener
         );
-        organizerSocket.emit(WS_CHANNELS.transition.close, transitionCb);
+
+        const waitForUpdate = (socket: ClientSocket) =>
+          new Promise<LiveSessionField>((resolve) =>
+            socket.once(
+              WS_CHANNELS.livesession.update,
+              (field: LiveSessionField) => resolve(field)
+            )
+          );
+
+        const organizerConnectionPromise = waitForUpdate(organizerSocket);
+        const participant1ConnectionPromise = waitForUpdate(participant1Socket);
+        const participant2ConnectionPromise = waitForUpdate(participant2Socket);
+
+        const organizerCallback = new Promise<SocketResponse>((resolve) =>
+          organizerSocket.emit(WS_CHANNELS.transition.close, (res: any) => {
+            expect(res.status).toEqual(httpStatusCode.OK);
+            resolve(res);
+          })
+        );
+
+        await Promise.all([
+          organizerConnectionPromise,
+          participant1ConnectionPromise,
+          participant2ConnectionPromise,
+          organizerCallback,
+        ]);
+
+        const _breakedLiveSession = await prismaClient.live_session.findFirst({
+          where: { id: breakedLiveSession.id },
+          include: { live_session_transition_log: true },
+        });
+
+        expect(_breakedLiveSession).toBeDefined();
+        expect(_breakedLiveSession!.status).toEqual(live_session_status.CLOSED);
+
+        expect(_breakedLiveSession?.live_session_transition_log).toBeDefined();
+        expect(_breakedLiveSession!.live_session_transition_log).toHaveLength(
+          1
+        );
+        expect(
+          _breakedLiveSession!.live_session_transition_log[0].from_state
+        ).toEqual(live_session_status.BREAKED);
+        expect(
+          _breakedLiveSession!.live_session_transition_log[0].to_state
+        ).toEqual(live_session_status.CLOSED);
       });
     });
 
@@ -820,22 +802,31 @@ describe('Transition Handler', () => {
 
       afterEach(async () => {
         await liveSessionFactory.cleanup();
+
+        Promise.all([
+          new Promise((resolve) => {
+            organizerSocket.on('disconnect', resolve);
+            organizerSocket.disconnect();
+          }),
+        ]);
       });
 
-      test('Must_Connection_Error_Raised_To_Closed_Live_Session', (done) => {
+      test('Must_Connection_Error_Raised_To_Closed_Live_Session', async () => {
         organizerSocket = ioc(
           process.env.SERVER_URL +
-            `/livesession/${closedLiveSession}?role=${Role.organizer}`,
+            `/${closedLiveSession}?role=${Role.organizer}`,
           {
             extraHeaders: { userId: organizer.id.toString() },
           }
         );
 
-        organizerSocket.on('connect_error', (err) => {
-          expect(err).toBeDefined();
-          expect(organizerSocket.connected).toBeFalsy();
-          done();
-        });
+        await new Promise<void>((resolve) =>
+          organizerSocket.on('connect_error', (err) => {
+            expect(err).toBeDefined();
+            expect(organizerSocket.connected).toBeFalsy();
+            resolve();
+          })
+        );
       });
     });
   });

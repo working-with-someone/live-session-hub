@@ -10,6 +10,7 @@ import liveSessionFactory from '../factories/live-session-factory';
 import { LiveSessionWithAll } from '../../src/@types/liveSession';
 import { Role } from '../../src/enums/session';
 import currUser from '../data/curr-user';
+import { SocketResponse } from '../../src/@types/augmentation/socket/response';
 
 describe('Chat Handler', () => {
   const organizer = currUser;
@@ -63,11 +64,11 @@ describe('Chat Handler', () => {
   });
 
   afterEach(async () => {
-    liveSessionFactory.cleanup();
+    await liveSessionFactory.cleanup();
   });
 
-  afterAll((done) => {
-    httpServer.close(done);
+  afterAll(async () => {
+    await new Promise((resolve) => httpServer.close(resolve));
   });
 
   afterAll(async () => {
@@ -82,97 +83,115 @@ describe('Chat Handler', () => {
     let participant2Socket: ClientSocket;
     let otherSessionParticipantSocket: ClientSocket;
 
-    // Socket 연결을 위한 헬퍼 함수
-    const connectSockets = (sessionId: string, done: jest.DoneCallback) => {
+    const connectSockets = async (sessionId: string) => {
       organizerSocket = ioc(
-        process.env.SERVER_URL +
-          `/livesession/${sessionId}?role=${Role.organizer}`,
+        process.env.SERVER_URL + `/${sessionId}?role=${Role.organizer}`,
         {
           extraHeaders: { userId: organizer.id.toString() },
+          forceNew: true,
         }
       );
 
       participant1Socket = ioc(
-        process.env.SERVER_URL +
-          `/livesession/${sessionId}?role=${Role.participant}`,
+        process.env.SERVER_URL + `/${sessionId}?role=${Role.participant}`,
         {
           extraHeaders: { userId: participant1.id.toString() },
+          forceNew: true,
         }
       );
 
       participant2Socket = ioc(
-        process.env.SERVER_URL +
-          `/livesession/${sessionId}?role=${Role.participant}`,
+        process.env.SERVER_URL + `/${sessionId}?role=${Role.participant}`,
         {
           extraHeaders: { userId: participant2.id.toString() },
+          forceNew: true,
         }
       );
 
       otherSessionParticipantSocket = ioc(
         process.env.SERVER_URL +
-          `/livesession/${breakedLiveSession2.id}?role=${Role.participant}`,
+          `/${breakedLiveSession2.id}?role=${Role.participant}`,
         {
           extraHeaders: { userId: otherSessionParticipant.id.toString() },
+          forceNew: true,
         }
       );
 
-      let connectedCount = 0;
-      const onConnect = () => {
-        connectedCount++;
-        if (connectedCount === 4) {
-          done();
-        }
-      };
-
-      organizerSocket.on('connect', onConnect);
-      participant1Socket.on('connect', onConnect);
-      participant2Socket.on('connect', onConnect);
-      otherSessionParticipantSocket.on('connect', onConnect);
+      await Promise.all([
+        new Promise<void>((resolve) => organizerSocket.on('connect', resolve)),
+        new Promise<void>((resolve) =>
+          participant1Socket.on('connect', resolve)
+        ),
+        new Promise<void>((resolve) =>
+          participant2Socket.on('connect', resolve)
+        ),
+        new Promise<void>((resolve) =>
+          otherSessionParticipantSocket.on('connect', resolve)
+        ),
+      ]);
     };
 
-    const disconnectAllSockets = () => {
-      organizerSocket?.disconnect();
-      participant1Socket?.disconnect();
-      participant2Socket?.disconnect();
-      otherSessionParticipantSocket?.disconnect();
+    const disconnectAllSockets = async () => {
+      await Promise.all([
+        new Promise((resolve) => {
+          organizerSocket.on('disconnect', resolve);
+          organizerSocket.disconnect();
+        }),
+        new Promise((resolve) => {
+          participant1Socket.on('disconnect', resolve);
+          participant1Socket.disconnect();
+        }),
+        new Promise((resolve) => {
+          participant2Socket.on('disconnect', resolve);
+          participant2Socket.disconnect();
+        }),
+        new Promise((resolve) => {
+          otherSessionParticipantSocket.on('disconnect', resolve);
+          otherSessionParticipantSocket.disconnect();
+        }),
+      ]);
     };
 
     describe('to breaked live session', () => {
-      beforeEach((done) => {
-        connectSockets(breakedLiveSession.id, done);
+      beforeEach(async () => {
+        await connectSockets(breakedLiveSession.id);
       });
 
-      afterEach(() => {
-        disconnectAllSockets();
+      afterEach(async () => {
+        await disconnectAllSockets();
       });
 
-      test('Response_200_Organizer_Broadcast', (done) => {
+      test('Response_200_Organizer_Broadcast', async () => {
         const msg = 'test';
-        const cb = jest.fn();
 
-        organizerSocket.emit(WS_CHANNELS.chat.broadCastSend, msg, cb);
-
-        setTimeout(() => {
-          expect(cb).toHaveBeenCalled();
-          expect(cb.mock.calls[0][0].status).toEqual(200);
-          done();
-        }, 1000);
+        await new Promise<void>((resolve) => {
+          organizerSocket.emit(
+            WS_CHANNELS.chat.broadCastSend,
+            msg,
+            (res: SocketResponse) => {
+              expect(res.status).toEqual(200);
+              resolve();
+            }
+          );
+        });
       });
 
-      test('Response_200_Participant_Broadcast', (done) => {
+      test('Response_200_Participant_Broadcast', async () => {
         const msg = 'test';
-        const cb = jest.fn();
 
-        participant1Socket.emit(WS_CHANNELS.chat.broadCastSend, msg, cb);
-
-        setTimeout(() => {
-          expect(cb).toHaveBeenCalled();
-          expect(cb.mock.calls[0][0].status).toEqual(200);
-          done();
-        }, 1000);
+        await new Promise<void>((resolve) => {
+          participant1Socket.emit(
+            WS_CHANNELS.chat.broadCastSend,
+            msg,
+            (res: SocketResponse) => {
+              expect(res.status).toEqual(200);
+              resolve();
+            }
+          );
+        });
       });
 
-      test('Broadcasted_Chat_By_The_Organizer_Should_Be_Received_By_All_Participants_In_The_Same_Live_Session', (done) => {
+      test('Broadcasted_Chat_By_The_Organizer_Should_Be_Received_By_All_Participants_In_The_Same_Live_Session', async () => {
         const msg = 'test';
         const broadCaster = organizer;
         const chat = {
@@ -183,51 +202,48 @@ describe('Chat Handler', () => {
             pfp: broadCaster.pfp.curr,
           },
         };
-        let receivedCount = 0;
-        const expectedReceiveCount = 3;
-
-        organizerSocket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
-          expect(data).toMatchObject(chat);
-          receivedCount++;
-
-          if (receivedCount === expectedReceiveCount) {
-            done();
-          }
-        });
-
-        participant1Socket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
-          expect(data).toMatchObject(chat);
-          receivedCount++;
-
-          if (receivedCount === expectedReceiveCount) {
-            done();
-          }
-        });
-
-        participant2Socket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
-          expect(data).toMatchObject(chat);
-          receivedCount++;
-
-          if (receivedCount === expectedReceiveCount) {
-            done();
-          }
-        });
 
         otherSessionParticipantSocket.on(
           WS_CHANNELS.chat.broadCastRecive,
           (data) => {
-            done(
-              new Error(
-                `Other session participant should not receive this message : ${data}`
-              )
+            throw new Error(
+              `Other session participant should not receive this message : ${data}`
             );
           }
         );
 
-        organizerSocket.emit(WS_CHANNELS.chat.broadCastSend, msg, jest.fn());
+        const broadCastRecivePromises = [
+          new Promise<void>((resolve) => {
+            organizerSocket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
+              expect(data).toMatchObject(chat);
+              resolve();
+            });
+          }),
+
+          new Promise<void>((resolve) => {
+            participant1Socket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
+              expect(data).toMatchObject(chat);
+              resolve();
+            });
+          }),
+          new Promise<void>((resolve) => {
+            participant2Socket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
+              expect(data).toMatchObject(chat);
+              resolve();
+            });
+          }),
+        ];
+
+        await new Promise<void>((resolve) => {
+          organizerSocket.emit(WS_CHANNELS.chat.broadCastSend, msg, () => {
+            resolve();
+          });
+        });
+
+        await Promise.all(broadCastRecivePromises);
       });
 
-      test('Broadcasted_Chat_By_The_Participant_Should_Be_Received_By_All_Participants_In_The_Same_Live_Session', (done) => {
+      test('Broadcasted_Chat_By_The_Participant_Should_Be_Received_By_All_Participants_In_The_Same_Live_Session', async () => {
         const msg = 'test';
         const broadCaster = participant1;
         const chat = {
@@ -239,128 +255,86 @@ describe('Chat Handler', () => {
           },
         };
 
-        let receivedCount = 0;
-        const expectedReceiveCount = 3;
-
-        organizerSocket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
-          expect(data).toMatchObject(chat);
-          receivedCount++;
-
-          if (receivedCount === expectedReceiveCount) {
-            done();
-          }
-        });
-
-        participant1Socket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
-          expect(data).toMatchObject(chat);
-          receivedCount++;
-
-          if (receivedCount === expectedReceiveCount) {
-            done();
-          }
-        });
-
-        participant2Socket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
-          expect(data).toMatchObject(chat);
-          receivedCount++;
-          if (receivedCount === expectedReceiveCount) {
-            done();
-          }
-        });
-
+        // 다른 session참가자는 메시지를 받지 못해야한다.
         otherSessionParticipantSocket.on(
           WS_CHANNELS.chat.broadCastRecive,
           (data) => {
-            done(
-              new Error(
-                `Other session participant should not receive this message : ${data}`
-              )
+            throw new Error(
+              `Other session participant should not receive this message : ${data}`
             );
           }
         );
 
-        participant1Socket.emit(WS_CHANNELS.chat.broadCastSend, msg, jest.fn());
+        const broadCastRecivePromises = [
+          new Promise<void>((resolve) => {
+            organizerSocket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
+              expect(data).toMatchObject(chat);
+              resolve();
+            });
+          }),
+
+          new Promise<void>((resolve) => {
+            participant1Socket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
+              expect(data).toMatchObject(chat);
+              resolve();
+            });
+          }),
+
+          new Promise<void>((resolve) => {
+            participant2Socket.on(WS_CHANNELS.chat.broadCastRecive, (data) => {
+              expect(data).toMatchObject(chat);
+              resolve();
+            });
+          }),
+        ];
+
+        await new Promise<void>((resolve) => {
+          participant1Socket.emit(WS_CHANNELS.chat.broadCastSend, msg, () => {
+            resolve();
+          });
+        });
+
+        await Promise.all(broadCastRecivePromises);
       });
     });
 
     describe('to opened live session', () => {
-      beforeEach((done) => {
-        // 다른 세션의 참여자는 breakedLiveSession2에 연결된 상태로 유지
-        organizerSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${openedLiveSession.id}?role=${Role.organizer}`,
-          {
-            extraHeaders: { userId: organizer.id.toString() },
-          }
-        );
-
-        participant1Socket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
-          {
-            extraHeaders: { userId: participant1.id.toString() },
-          }
-        );
-
-        participant2Socket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${openedLiveSession.id}?role=${Role.participant}`,
-          {
-            extraHeaders: { userId: participant2.id.toString() },
-          }
-        );
-
-        // otherSessionParticipantSocket는 breakedLiveSession2에 계속 연결
-        otherSessionParticipantSocket = ioc(
-          process.env.SERVER_URL +
-            `/livesession/${breakedLiveSession2.id}?role=${Role.participant}`,
-          {
-            extraHeaders: { userId: otherSessionParticipant.id.toString() },
-          }
-        );
-
-        let connectedCount = 0;
-        const onConnect = () => {
-          connectedCount++;
-          if (connectedCount === 4) {
-            done();
-          }
-        };
-
-        organizerSocket.on('connect', onConnect);
-        participant1Socket.on('connect', onConnect);
-        participant2Socket.on('connect', onConnect);
-        otherSessionParticipantSocket.on('connect', onConnect);
+      beforeEach(async () => {
+        await connectSockets(openedLiveSession.id);
       });
 
-      afterEach(() => {
-        disconnectAllSockets();
+      afterEach(async () => {
+        await disconnectAllSockets();
       });
 
-      test('Response_403_Organizer_Broadcast', (done) => {
+      test('Response_403_Organizer_Broadcast', async () => {
         const msg = 'test';
-        const cb = jest.fn();
 
-        organizerSocket.emit(WS_CHANNELS.chat.broadCastSend, msg, cb);
-
-        setTimeout(() => {
-          expect(cb).toHaveBeenCalled();
-          expect(cb.mock.calls[0][0].status).toEqual(403);
-          done();
-        }, 1000);
+        await new Promise<void>((resolve) => {
+          organizerSocket.emit(
+            WS_CHANNELS.chat.broadCastSend,
+            msg,
+            (res: SocketResponse) => {
+              expect(res.status).toEqual(403);
+              resolve();
+            }
+          );
+        });
       });
 
-      test('Response_403_Participant_Broadcast', (done) => {
+      test('Response_403_Participant_Broadcast', async () => {
         const msg = 'test';
-        const cb = jest.fn();
 
-        participant1Socket.emit(WS_CHANNELS.chat.broadCastSend, msg, cb);
-
-        setTimeout(() => {
-          expect(cb).toHaveBeenCalled();
-          expect(cb.mock.calls[0][0].status).toEqual(403);
-          done();
-        }, 1000);
+        await new Promise<void>((resolve) => {
+          participant1Socket.emit(
+            WS_CHANNELS.chat.broadCastSend,
+            msg,
+            (res: SocketResponse) => {
+              expect(res.status).toEqual(403);
+              resolve();
+            }
+          );
+        });
       });
     });
   });
