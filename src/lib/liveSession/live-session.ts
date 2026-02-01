@@ -9,6 +9,7 @@ import {
   liveSessionBreakHeap,
   liveSessionBreakScheduler,
   liveSessionOpenHeap,
+  liveSessionOpenScheduler,
 } from './schedular/open-break-schedular';
 import ffmpegProcessPool from '../ffmpeg/ffmpegProcessPool';
 
@@ -274,7 +275,7 @@ export class OrganizerLiveSession extends LiveSession {
 
     // breawk time이 설정되어있다면, open을 schedule한다.
     if (this.break_time) {
-      liveSessionBreakScheduler.add(this.id);
+      liveSessionOpenScheduler.add(this.id);
     }
 
     await prismaClient.live_session.update({
