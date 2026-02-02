@@ -98,6 +98,11 @@ const attachFfmpegProcessToOrganizer = async (
       organizerSocket.liveSession.id
     );
 
+    socket.on('disconnect', () => {
+      process.stdin.end();
+      process.kill();
+    });
+
     process.stderr.on('data', (output) => {
       ffmpegParser.processFfmpegOutput(output.toString(), {
         onError: (line) => {
