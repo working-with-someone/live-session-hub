@@ -150,7 +150,7 @@ model video_session {
   thumbnail_uri String
   duration      BigInt
 
-  access_level Int @default(1)
+  access_level access_level @default(PUBLIC)
 
   created_at DateTime @default(now())
   updated_at DateTime @default(now())
