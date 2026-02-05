@@ -3,6 +3,8 @@ declare namespace NodeJS {
     PROTOCOL: string;
     HOST: string;
     PORT: string;
+    RTMP_SERVER_ORIGIN: string;
+    RTMP_STATIC_ORIGIN: string;
     SERVER_URL: string;
     WWS_CLIENT_APP_ORIGIN: string;
 

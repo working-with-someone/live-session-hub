@@ -140,9 +140,4 @@ class LiveSessionBreakScheduler extends LiveSessionScheduler {
 const liveSessionOpenScheduler = new LiveSessionOpenScheduler();
 const liveSessionBreakScheduler = new LiveSessionBreakScheduler();
 
-export {
-  liveSessionOpenScheduler,
-  liveSessionBreakScheduler,
-  LiveSessionOpenScheduler,
-  LiveSessionBreakScheduler,
-};
+export { liveSessionOpenScheduler, liveSessionBreakScheduler };

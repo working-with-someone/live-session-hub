@@ -23,102 +23,183 @@ describe('Notify Handler', () => {
   });
 
   afterEach(async () => {
-    liveSessionFactory.cleanup();
+    await liveSessionFactory.cleanup();
+    liveSessionPool.clear();
   });
 
-  describe('post publish notify', () => {
-    test('Response_200_With_Ready_Live_Session', async () => {
-      const liveSession = await liveSessionFactory.createAndSave({
-        organizer: {
-          connect: {
-            id: currUser.id,
+  describe('POST', () => {
+    describe('Action:postPublish', () => {
+      test('Response_200', async () => {
+        const liveSession = await liveSessionFactory.createAndSave({
+          organizer: {
+            connect: {
+              id: currUser.id,
+            },
           },
-        },
-        status: live_session_status.READY,
-        break_time: {
-          create: {
-            interval: 50,
-            duration: 10,
+          status: live_session_status.READY,
+          break_time: {
+            create: {
+              interval: 50,
+              duration: 10,
+            },
           },
-        },
-      });
-
-      const organizerLiveSession = new OrganizerLiveSession(liveSession);
-
-      await liveSessionPool.add(organizerLiveSession);
-
-      const res = await request(app)
-        .post('/notify')
-        .set('Content-Type', 'application/json')
-        .send({
-          id: 'mkpix8f48hwdxvcv',
-          ip: '::ffff:172.18.0.5:49750',
-          app: 'live',
-          name: organizerLiveSession.id,
-          query: {},
-          protocol: 'rtmp',
-          createtime: 1769090694880,
-          endtime: 0,
-          inbytes: 3497,
-          outbytes: 0,
-          filePath: '',
-          action: 'postPublish',
         });
 
-      expect(res.statusCode).toEqual(httpStatusCodes.OK);
+        const organizerLiveSession = new OrganizerLiveSession(liveSession);
 
-      // live session
-      expect(organizerLiveSession.status).toEqual(live_session_status.OPENED);
-      // break time을 설정했기 때문에, break time scheduler에 등록되어있어야한다.
-      expect(
-        liveSessionBreakHeap.contains(organizerLiveSession.id)
-      ).toBeTruthy();
+        await liveSessionPool.add(organizerLiveSession);
 
-      liveSessionBreakHeap.remove(organizerLiveSession.id);
+        const res = await request(app)
+          .post('/notify')
+          .set('Content-Type', 'application/json')
+          .send({
+            id: 'mkpix8f48hwdxvcv',
+            ip: '::ffff:172.18.0.5:49750',
+            app: 'live',
+            name: organizerLiveSession.id,
+            query: {},
+            protocol: 'rtmp',
+            createtime: 1769090694880,
+            endtime: 0,
+            inbytes: 3497,
+            outbytes: 0,
+            filePath: '',
+            action: 'postPublish',
+          });
+
+        expect(res.statusCode).toEqual(httpStatusCodes.OK);
+
+        // live session
+        expect(organizerLiveSession.status).toEqual(live_session_status.OPENED);
+        // break time을 설정했기 때문에, break time scheduler에 등록되어있어야한다.
+        expect(
+          liveSessionBreakHeap.contains(organizerLiveSession.id)
+        ).toBeTruthy();
+
+        liveSessionBreakHeap.remove(organizerLiveSession.id);
+      });
+
+      test('Response_400_About_Opened_Live_Session', async () => {
+        const liveSession = await liveSessionFactory.createAndSave({
+          organizer: {
+            connect: {
+              id: currUser.id,
+            },
+          },
+          status: live_session_status.OPENED,
+          break_time: {
+            create: {
+              interval: 50,
+              duration: 10,
+            },
+          },
+          started_at: new Date(),
+        });
+
+        const organizerLiveSession = new OrganizerLiveSession(liveSession);
+
+        await liveSessionPool.add(organizerLiveSession);
+
+        const res = await request(app)
+          .post('/notify')
+          .set('Content-Type', 'application/json')
+          .send({
+            id: 'mkpix8f48hwdxvcv',
+            ip: '::ffff:172.18.0.5:49750',
+            app: 'live',
+            name: organizerLiveSession.id,
+            query: {},
+            protocol: 'rtmp',
+            createtime: 1769090694880,
+            endtime: 0,
+            inbytes: 3497,
+            outbytes: 0,
+            filePath: '',
+            action: 'postPublish',
+          });
+
+        expect(res.statusCode).toEqual(httpStatusCodes.BAD_REQUEST);
+
+        liveSessionBreakHeap.remove(organizerLiveSession.id);
+      });
     });
 
-    test('Response_400_With_Opened_Live_Session', async () => {
-      const liveSession = await liveSessionFactory.createAndSave({
-        organizer: {
-          connect: {
-            id: currUser.id,
+    describe('Action:donePublish', () => {
+      test('Response_200', async () => {
+        const liveSession = await liveSessionFactory.createAndSave({
+          organizer: {
+            connect: {
+              id: currUser.id,
+            },
           },
-        },
-        status: live_session_status.OPENED,
-        break_time: {
-          create: {
-            interval: 50,
-            duration: 10,
-          },
-        },
-        started_at: new Date(),
-      });
-
-      const organizerLiveSession = new OrganizerLiveSession(liveSession);
-
-      await liveSessionPool.add(organizerLiveSession);
-
-      const res = await request(app)
-        .post('/notify')
-        .set('Content-Type', 'application/json')
-        .send({
-          id: 'mkpix8f48hwdxvcv',
-          ip: '::ffff:172.18.0.5:49750',
-          app: 'live',
-          name: organizerLiveSession.id,
-          query: {},
-          protocol: 'rtmp',
-          createtime: 1769090694880,
-          endtime: 0,
-          inbytes: 3497,
-          outbytes: 0,
-          filePath: '',
-          action: 'postPublish',
+          status: live_session_status.OPENED,
+          started_at: new Date(),
         });
 
-      expect(res.statusCode).toEqual(httpStatusCodes.BAD_REQUEST);
+        const organizerLiveSession = new OrganizerLiveSession(liveSession);
 
-      liveSessionBreakHeap.remove(organizerLiveSession.id);
+        await liveSessionPool.add(organizerLiveSession);
+
+        const res = await request(app)
+          .post('/notify')
+          .set('Content-Type', 'application/json')
+          .send({
+            id: 'mkpix8f48hwdxvcv',
+            ip: '::ffff:172.18.0.5:49750',
+            app: 'live',
+            name: organizerLiveSession.id,
+            query: {},
+            protocol: 'rtmp',
+            createtime: 1769090694880,
+            endtime: 0,
+            inbytes: 3497,
+            outbytes: 0,
+            filePath: '',
+            action: 'donePublish',
+          });
+
+        expect(res.statusCode).toEqual(httpStatusCodes.OK);
+        // live session pool에서 제거되었어야한다.
+        expect(liveSessionPool.get(organizerLiveSession.id)).toBeUndefined();
+      });
+    });
+
+    describe('Action:doneRecord', () => {
+      test('Response_200', async () => {
+        const liveSession = await liveSessionFactory.createAndSave({
+          organizer: {
+            connect: {
+              id: currUser.id,
+            },
+          },
+          status: live_session_status.CLOSED,
+          started_at: new Date(),
+        });
+
+        const organizerLiveSession = new OrganizerLiveSession(liveSession);
+
+        await liveSessionPool.add(organizerLiveSession);
+
+        const res = await request(app)
+          .post('/notify')
+          .set('Content-Type', 'application/json')
+          .send({
+            id: 'mkpix8f48hwdxvcv',
+            ip: '::ffff:172.18.0.5:49750',
+            app: 'live',
+            name: organizerLiveSession.id,
+            query: {},
+            protocol: 'rtmp',
+            createtime: 1769090694880,
+            endtime: 0,
+            inbytes: 3497,
+            outbytes: 0,
+            filePath: '/test',
+            action: 'doneRecord',
+          });
+
+        expect(res.statusCode).toEqual(httpStatusCodes.OK);
+      });
     });
   });
 });

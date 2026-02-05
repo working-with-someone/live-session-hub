@@ -1,8 +1,8 @@
 import { Request, Response, Router } from 'express';
 import liveSessionPool from '../lib/liveSession/pool';
-import { liveSessionBreakScheduler } from '../lib/liveSession/schedular/open-break-schedular';
-import { live_session_status } from '@prisma/client';
 import httpStatusCodes from 'http-status-codes';
+import { probe } from '../utils/ffprobe';
+import prismaClient from '../database/clients/prisma';
 
 type NotifyAction =
   | 'postPlay'
@@ -64,12 +64,32 @@ notifyRouter.route('/').post(async (req: NotifyRequest, res: Response) => {
 
     // recording이 종료되면, video session을 생성한다.
     case 'doneRecord':
+      const filePath = req.body.filePath;
+
+      if (!filePath) {
+        throw new Error('filePath is required for doneRecord');
+      }
+
+      const info = await probe(filePath);
+
+      const videoSession = await prismaClient.video_session.create({
+        data: {
+          id: liveSession.id,
+          thumbnail_uri: liveSession.thumbnail_uri,
+          title: liveSession.title,
+          access_level: liveSession.access_level,
+          category_label: liveSession.category_label,
+          description: liveSession.description,
+          created_at: new Date(),
+          duration: parseInt(info.format.duration),
+          organizer_id: liveSession.organizer_id,
+        },
+      });
+
       break;
   }
 
   res.status(httpStatusCodes.OK).end();
-
-  return;
 });
 
 export default notifyRouter;
